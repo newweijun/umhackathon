@@ -1,0 +1,171 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Assumes custom claims: { role: "admin" | "company" | "student" }
+    function role() {
+      return isSignedIn() && request.auth.token.role is string
+        ? request.auth.token.role
+        : "";
+    }
+
+    function isAdmin() {
+      return role() == "admin";
+    }
+
+    function isCompany() {
+      return role() == "company";
+    }
+
+    function isStudent() {
+      return role() == "student";
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function jobDoc(jobId) {
+      return get(/databases/$(database)/documents/jobs/$(jobId));
+    }
+
+    function jobExists(jobId) {
+      return exists(/databases/$(database)/documents/jobs/$(jobId));
+    }
+
+    // -------- users --------
+    // Keep user docs keyed by uid.
+    // Example: users/{uid}
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+
+      // First-time profile bootstrap by owner, then only owner/admin update.
+      allow create: if isSelf(uid)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.role in ["student", "company"];
+
+      // Prevent clients from escalating role.
+      allow update: if (isSelf(uid) || isAdmin())
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.role == resource.data.role;
+
+      allow delete: if isAdmin();
+    }
+
+    // -------- companyProfiles --------
+    // Example: companyProfiles/{uid}
+    match /companyProfiles/{uid} {
+      allow read: if isSignedIn();
+      allow create, update: if (isSelf(uid) && isCompany()) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // -------- candidateProfiles --------
+    // Example: candidateProfiles/{uid}
+    match /candidateProfiles/{uid} {
+      allow read: if isSelf(uid) || isAdmin() || isCompany();
+      allow create, update: if (isSelf(uid) && isStudent()) || isAdmin();
+      allow delete: if isSelf(uid) || isAdmin();
+    }
+
+    // -------- jobs --------
+    // Example: jobs/{jobId}
+    // Required fields: companyId (uid), title, status ("draft"|"open"|"closed")
+    match /jobs/{jobId} {
+      // Open jobs are publicly readable by signed-in users.
+      // Draft jobs are visible only to owner company or admin.
+      allow read: if isAdmin()
+        || (isCompany() && resource.data.companyId == request.auth.uid)
+        || (isStudent() && resource.data.status == "open");
+
+      allow create: if (isAdmin()
+          || (isCompany() && request.resource.data.companyId == request.auth.uid))
+        && request.resource.data.status in ["draft", "open", "closed"];
+
+      allow update: if isAdmin()
+        || (isCompany()
+          && resource.data.companyId == request.auth.uid
+          && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.status in ["draft", "open", "closed"]);
+
+      allow delete: if isAdmin()
+        || (isCompany() && resource.data.companyId == request.auth.uid);
+    }
+
+    // -------- applications --------
+    // Example: applications/{applicationId}
+    // Required fields: studentId, companyId, jobId, status
+    match /applications/{applicationId} {
+      allow read: if isAdmin()
+        || (isStudent() && resource.data.studentId == request.auth.uid)
+        || (isCompany() && resource.data.companyId == request.auth.uid);
+
+      // Student submits an application to an open job.
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.companyId is string
+        && request.resource.data.jobId is string
+        && jobExists(request.resource.data.jobId)
+        && jobDoc(request.resource.data.jobId).data.status == "open"
+        && jobDoc(request.resource.data.jobId).data.companyId == request.resource.data.companyId
+        && request.resource.data.status == "submitted";
+
+      // Student can only edit own note-like fields and cannot rewire ownership.
+      allow update: if isAdmin()
+        || (isStudent()
+          && resource.data.studentId == request.auth.uid
+          && request.resource.data.studentId == resource.data.studentId
+          && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.jobId == resource.data.jobId)
+        || (isCompany()
+          && resource.data.companyId == request.auth.uid
+          && request.resource.data.studentId == resource.data.studentId
+          && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.jobId == resource.data.jobId);
+
+      allow delete: if isAdmin();
+    }
+
+    // -------- ratingResults --------
+    // Example: ratingResults/{ratingId}
+    // Required fields: jobId, studentId, companyId, score, modelVersion
+    match /ratingResults/{ratingId} {
+      // Visible to the parties involved + admin.
+      allow read: if isAdmin()
+        || (isStudent() && resource.data.studentId == request.auth.uid)
+        || (isCompany() && resource.data.companyId == request.auth.uid);
+
+      // Strong recommendation: create/update via server SDK only.
+      // Client-side writes are blocked by default.
+      allow create, update, delete: if isAdmin();
+    }
+
+    // -------- messages (optional realtime chat) --------
+    // Example: messages/{messageId} with participants: [uid1, uid2]
+    match /messages/{messageId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && request.auth.uid in resource.data.participants);
+
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.participants.size() == 2;
+
+      allow update, delete: if isAdmin();
+    }
+
+    // -------- audit logs --------
+    // Write from server/admin only, read by admin only.
+    match /auditLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Deny everything else explicitly.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
