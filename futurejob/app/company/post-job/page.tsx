@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Sparkles, Building2, MapPin, DollarSign, Send } from "lucide-react";
+import { MotionButton } from "@/components/ui/MotionButton";
 
 export default function PostJob() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -14,16 +15,16 @@ export default function PostJob() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto h-[calc(100vh-4rem)]">
+    <div className="max-w-4xl mx-auto min-h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)]">
       <header className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Create New Job Posting</h1>
         <p className="text-slate-500">Provide your expectations and let AI structure the perfect job description.</p>
       </header>
 
       <form onSubmit={handleGenerate} className="glass-card p-8">
-        <div className="grid grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Job Title */}
-          <div className="col-span-2">
+          <div className="col-span-1 md:col-span-2">
             <label className="block text-sm font-semibold text-slate-700 mb-2">Job Title</label>
             <div className="relative">
               <Building2 className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" />
@@ -77,10 +78,10 @@ export default function PostJob() {
 
         {/* Submit */}
         <div className="flex justify-end pt-4 border-t border-slate-100">
-          <button 
+          <MotionButton 
             type="submit" 
             disabled={isGenerating}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold rounded-lg shadow-md shadow-indigo-200/50 transition-all cursor-pointer disabled:opacity-70"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold rounded-lg shadow-md shadow-indigo-200/50 cursor-pointer disabled:opacity-70"
           >
             {isGenerating ? (
               <>
@@ -93,7 +94,7 @@ export default function PostJob() {
                 Generate AI Job Post
               </>
             )}
-          </button>
+          </MotionButton>
         </div>
       </form>
     </div>
