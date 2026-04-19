@@ -80,3 +80,120 @@ We utilize a streamlined user experience flow, strictly utilizing role-based reg
 | **Person 3** | **Company Experience (UI & Backend)**<br>• Company View & Dashboard<br>• UI for showing expectations<br>• Chat Platform integration<br>• Notification system (Automated rejection alerts)<br>• Interview Session management |
 
 ---
+
+## Firebase Setup (Next.js)
+
+1. Copy environment template:
+
+```bash
+cp .env.example .env.local
+```
+
+2. Fill `.env.local` with your Firebase Web App config values.
+
+3. Reuse the shared Firebase client module in client components:
+
+```ts
+import {
+   firebaseApp,
+   firebaseAuth,
+   firebaseDb,
+   firebaseStorage,
+   getFirebaseAnalytics,
+} from "@/lib/firebase/client";
+
+// Optional analytics on client side only
+getFirebaseAnalytics();
+```
+
+4. Never hardcode Firebase config directly inside pages/components.
+
+## Spark Plan Note
+
+If your Firebase project is on Spark and Storage is not enabled, use Firestore-only commands by default:
+
+```bash
+npm run test:rules
+npm run firebase:deploy:rules
+```
+
+Optional (only after Storage is enabled in Firebase Console):
+
+```bash
+npm run test:rules:all
+npm run firebase:deploy:rules:all
+```
+
+## CI for Firebase Rules (GitHub Actions)
+
+Workflow file:
+
+- `.github/workflows/firebase-rules-ci.yml`
+
+Behavior:
+
+1. On pull request: run `npm run test:rules` (Firestore emulator tests).
+2. On push to `main`: deploy Firestore rules automatically.
+3. Optional: deploy Storage rules only when repository variable `ENABLE_STORAGE_RULES=true`.
+
+Required GitHub repository secret:
+
+- `FIREBASE_SERVICE_ACCOUNT_JSON`: full JSON of a Firebase service account key with permissions to deploy rules.
+
+Recommended for Spark projects (no Storage enabled yet):
+
+- Do not set `ENABLE_STORAGE_RULES`, or keep it as `false`.
+
+## Firestore Query Service Layer
+
+Service entry:
+
+- `lib/services/index.ts`
+
+Implemented query services:
+
+- `lib/services/jobs.ts`
+- `lib/services/applications.ts`
+
+Index-to-query alignment:
+
+1. `jobs: companyId + status + createdAt(desc)`
+   - `getCompanyJobsByStatus(companyId, status, take)`
+2. `jobs: status + createdAt(desc)`
+   - `getJobsByStatus(status, take)`
+3. `applications: studentId + status + createdAt(desc)`
+   - `getStudentApplicationsByStatus(studentId, status, take)`
+4. `applications: companyId + status + createdAt(desc)`
+   - `getCompanyApplicationsByStatus(companyId, status, take)`
+5. `applications: jobId + status + createdAt(desc)`
+   - `getJobApplicationsByStatus(jobId, status, take)`
+6. `applications: companyId + jobId + createdAt(desc)`
+   - `getCompanyApplicationsByJob(companyId, jobId, take)`
+7. `ratingResults: companyId + createdAt(desc)`
+   - `getCompanyRatingResults(companyId, take)`
+
+## Admin Setup
+
+You can enable an admin account in three ways:
+
+1. Manual Firestore mark
+   - Open `users/{uid}` in Firestore and set `role` to `admin`.
+   - Then call the login flow once so custom claims sync from Firestore.
+
+2. Local/server bootstrap script
+   - Script: `scripts/admin-bootstrap.js`
+   - Run:
+
+```bash
+npm run admin:bootstrap -- <uid> [email]
+```
+
+   - Required env vars:
+     - `FIREBASE_ADMIN_PROJECT_ID`
+     - `FIREBASE_ADMIN_CLIENT_EMAIL`
+     - `FIREBASE_ADMIN_PRIVATE_KEY`
+
+3. Hidden local admin entry
+   - Open `/login?admin=1` on `localhost` during development.
+   - This reveals an extra `Admin Mode` button only in local/dev.
+   - It is not shown in production.

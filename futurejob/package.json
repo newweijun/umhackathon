@@ -6,22 +6,35 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "firebase:deploy:rules": "firebase deploy --only firestore:rules --project um-hackhoton-hipposenpai",
+    "firebase:deploy:indexes": "firebase deploy --only firestore:indexes --project um-hackhoton-hipposenpai",
+    "firebase:deploy:rules:all": "firebase deploy --only firestore:rules,storage --project um-hackhoton-hipposenpai",
+    "admin:bootstrap": "node scripts/admin-bootstrap.js",
+    "test:rules:unit": "node --test tests/rules/firestore.rules.test.mjs",
+    "test:rules:unit:all": "node --test tests/rules/*.test.mjs",
+    "test:rules": "firebase emulators:exec --project um-hackhoton-hipposenpai --only firestore \"npm run test:rules:unit\"",
+    "test:rules:all": "firebase emulators:exec --project um-hackhoton-hipposenpai --only firestore,storage \"npm run test:rules:unit:all\""
   },
   "dependencies": {
+    "firebase": "^12.12.0",
+    "firebase-admin": "^13.8.0",
     "framer-motion": "^12.38.0",
+    "jose": "^6.2.2",
     "lucide-react": "^1.8.0",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "firebase-tools": "^15.15.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
