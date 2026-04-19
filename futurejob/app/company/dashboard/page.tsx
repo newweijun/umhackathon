@@ -13,7 +13,7 @@ import {
   type ApplicationStatus,
 } from "@/lib/services";
 import { firebaseAuth } from "@/lib/firebase/client";
-import { SearchBar } from "@/components/ui/SearchBar";
+import { SearchBar } from "@/components/ui/company_view/SearchBar";
 
 type DashboardApplicant = {
   id: string;
@@ -252,26 +252,24 @@ export default function CompanyDashboard() {
                       <td className="px-6 py-4 text-slate-600 truncate max-w-[200px]">{applicant.skills}</td>
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
-                            applicant.match >= 90
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${applicant.match >= 90
                               ? "bg-emerald-100 text-emerald-700"
                               : applicant.match >= 80
                                 ? "bg-indigo-100 text-indigo-700"
                                 : "bg-amber-100 text-amber-700"
-                          }`}
+                            }`}
                         >
                           {applicant.match}%
                         </span>
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`text-xs font-medium px-2 py-1 rounded-md border ${
-                            applicant.status === "Approved"
+                          className={`text-xs font-medium px-2 py-1 rounded-md border ${applicant.status === "Approved"
                               ? "bg-emerald-50 border-emerald-200 text-emerald-600"
                               : applicant.status === "Rejected"
                                 ? "bg-rose-50 border-rose-200 text-rose-600"
                                 : "bg-slate-50 border-slate-200 text-slate-600"
-                          }`}
+                            }`}
                         >
                           {applicant.status}
                         </span>
