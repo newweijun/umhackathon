@@ -2,6 +2,8 @@
 
 import {
   collection,
+  doc,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -70,4 +72,23 @@ export async function getJobsByStatus(
 
   const snapshot = await getDocs(jobsQuery);
   return snapshot.docs.map(toJobRecord);
+}
+
+export async function getJobById(jobId: string): Promise<JobRecord | null> {
+  const jobRef = doc(firebaseDb, "jobs", jobId);
+  const snapshot = await getDoc(jobRef);
+  
+  if (!snapshot.exists()) {
+    return null;
+  }
+  
+  const data = snapshot.data();
+  return {
+    id: snapshot.id,
+    companyId: data.companyId,
+    title: data.title,
+    status: data.status,
+    createdAt: data.createdAt,
+    ...data,
+  } as JobRecord;
 }
