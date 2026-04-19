@@ -1,0 +1,52 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return isSignedIn() && request.auth.token.role is string
+        ? request.auth.token.role
+        : "";
+    }
+
+    function isAdmin() {
+      return role() == "admin";
+    }
+
+    function isCompany() {
+      return role() == "company";
+    }
+
+    function isStudent() {
+      return role() == "student";
+    }
+
+    // Student resumes
+    // Path: resumes/{uid}/{fileName}
+    match /resumes/{uid}/{fileName} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid) || isCompany();
+      allow write: if (isSignedIn() && request.auth.uid == uid && isStudent()) || isAdmin();
+    }
+
+    // Company attachments (job descriptions, assets)
+    // Path: company-assets/{uid}/{fileName}
+    match /company-assets/{uid}/{fileName} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid) || isStudent() || isCompany();
+      allow write: if (isSignedIn() && request.auth.uid == uid && isCompany()) || isAdmin();
+    }
+
+    // Public assets if needed
+    // Path: public/{allPaths=**}
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Block all remaining paths.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

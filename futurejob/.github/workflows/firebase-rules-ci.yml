@@ -1,0 +1,66 @@
+name: Firebase Rules CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  FIREBASE_PROJECT_ID: um-hackhoton-hipposenpai
+
+jobs:
+  rules-test:
+    name: Rules Test (Firestore Emulator)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run rules tests
+        run: npm run test:rules
+
+  deploy-rules:
+    name: Deploy Rules
+    runs-on: ubuntu-latest
+    needs: rules-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Write Firebase service account key
+        shell: bash
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > "$RUNNER_TEMP/firebase-service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> $GITHUB_ENV
+
+      - name: Deploy Firestore rules
+        run: npx firebase deploy --only firestore:rules --project "$FIREBASE_PROJECT_ID"
+
+      - name: Deploy Storage rules (optional)
+        if: ${{ vars.ENABLE_STORAGE_RULES == 'true' }}
+        run: npx firebase deploy --only storage --project "$FIREBASE_PROJECT_ID"
