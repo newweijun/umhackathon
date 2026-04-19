@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "@/components/ui/Sidebar";
 import { Menu } from "lucide-react";
+import { firebaseAuth } from "@/lib/firebase/client";
 
 export default function CompanyLayout({
   children,
@@ -10,6 +13,31 @@ export default function CompanyLayout({
   children: React.ReactNode;
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+      if (!user) {
+        const next = encodeURIComponent(pathname || "/company/dashboard");
+        router.replace(`/login?next=${next}`);
+        return;
+      }
+
+      setIsAuthReady(true);
+    });
+
+    return unsubscribe;
+  }, [pathname, router]);
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500">
+        Checking authentication...
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">
