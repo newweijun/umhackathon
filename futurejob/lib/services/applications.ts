@@ -26,7 +26,7 @@ export interface ApplicationRecord {
 }
 
 function toApplicationRecord(
-  snapshot: QueryDocumentSnapshot<DocumentData>
+  snapshot: QueryDocumentSnapshot<DocumentData>,
 ): ApplicationRecord {
   const data = snapshot.data();
   return {
@@ -44,7 +44,7 @@ function toApplicationRecord(
 export async function getStudentApplicationsByStatus(
   studentId: string,
   status: ApplicationStatus,
-  take = 20
+  take = 20,
 ): Promise<ApplicationRecord[]> {
   const applicationsRef = collection(firebaseDb, "applications");
   const applicationsQuery = query(
@@ -52,7 +52,7 @@ export async function getStudentApplicationsByStatus(
     where("studentId", "==", studentId),
     where("status", "==", status),
     orderBy("createdAt", "desc"),
-    limit(take)
+    limit(take),
   );
 
   const snapshot = await getDocs(applicationsQuery);
@@ -63,7 +63,7 @@ export async function getStudentApplicationsByStatus(
 export async function getCompanyApplicationsByStatus(
   companyId: string,
   status: ApplicationStatus,
-  take = 20
+  take = 20,
 ): Promise<ApplicationRecord[]> {
   const applicationsRef = collection(firebaseDb, "applications");
   const applicationsQuery = query(
@@ -71,7 +71,7 @@ export async function getCompanyApplicationsByStatus(
     where("companyId", "==", companyId),
     where("status", "==", status),
     orderBy("createdAt", "desc"),
-    limit(take)
+    limit(take),
   );
 
   const snapshot = await getDocs(applicationsQuery);
@@ -82,7 +82,7 @@ export async function getCompanyApplicationsByStatus(
 export async function getJobApplicationsByStatus(
   jobId: string,
   status: ApplicationStatus,
-  take = 20
+  take = 20,
 ): Promise<ApplicationRecord[]> {
   const applicationsRef = collection(firebaseDb, "applications");
   const applicationsQuery = query(
@@ -90,7 +90,7 @@ export async function getJobApplicationsByStatus(
     where("jobId", "==", jobId),
     where("status", "==", status),
     orderBy("createdAt", "desc"),
-    limit(take)
+    limit(take),
   );
 
   const snapshot = await getDocs(applicationsQuery);
@@ -101,7 +101,7 @@ export async function getJobApplicationsByStatus(
 export async function getCompanyApplicationsByJob(
   companyId: string,
   jobId: string,
-  take = 20
+  take = 20,
 ): Promise<ApplicationRecord[]> {
   const applicationsRef = collection(firebaseDb, "applications");
   const applicationsQuery = query(
@@ -109,7 +109,23 @@ export async function getCompanyApplicationsByJob(
     where("companyId", "==", companyId),
     where("jobId", "==", jobId),
     orderBy("createdAt", "desc"),
-    limit(take)
+    limit(take),
+  );
+
+  const snapshot = await getDocs(applicationsQuery);
+  return snapshot.docs.map(toApplicationRecord);
+}
+// Index match: studentId + createdAt(desc)
+export async function getStudentApplications(
+  studentId: string,
+  take = 50,
+): Promise<ApplicationRecord[]> {
+  const applicationsRef = collection(firebaseDb, "applications");
+  const applicationsQuery = query(
+    applicationsRef,
+    where("studentId", "==", studentId),
+    orderBy("createdAt", "desc"),
+    limit(take),
   );
 
   const snapshot = await getDocs(applicationsQuery);
