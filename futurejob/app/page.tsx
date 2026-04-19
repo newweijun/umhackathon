@@ -4,6 +4,11 @@ import { motion } from "framer-motion";
 import { ArrowRight, Briefcase, Building2, Sparkles, Zap, ShieldCheck } from "lucide-react";
 
 export default function Home() {
+  const companyLoginHref = {
+    pathname: "/login",
+    query: { next: "/company/dashboard" },
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -40,7 +45,7 @@ export default function Home() {
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
             <Link href="#features" className="hover:text-indigo-600 transition-colors">Features</Link>
             <Link href="#how-it-works" className="hover:text-indigo-600 transition-colors">How it Works</Link>
-            <Link href="/company/dashboard" className="hover:text-indigo-600 transition-colors">For Companies</Link>
+            <Link href={companyLoginHref} className="hover:text-indigo-600 transition-colors">For Companies</Link>
           </div>
           <div className="flex items-center gap-3">
             <Link 
@@ -104,7 +109,7 @@ export default function Home() {
               Explore Jobs
             </Link>
             <Link 
-              href="/company/dashboard" 
+              href={companyLoginHref}
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-8 py-3.5 rounded-full font-medium transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
             >
               <Building2 size={20} />
