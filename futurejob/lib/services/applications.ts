@@ -11,12 +11,9 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { firebaseDb } from "@/lib/firebase/client";
+import { type ApplicationStatus as DomainApplicationStatus } from "@/lib/domain/enums";
 
-export type ApplicationStatus =
-  | "submitted"
-  | "reviewing"
-  | "approved"
-  | "rejected";
+export type ApplicationStatus = DomainApplicationStatus;
 
 export interface ApplicationRecord {
   id: string;

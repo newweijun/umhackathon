@@ -13,11 +13,12 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { type UserRole } from "@/lib/domain/enums";
 import { firebaseAuth, firebaseDb } from "@/lib/firebase/client";
+import { withCreatedAndUpdatedAt } from "@/lib/services/timestamps";
 
 type Mode = "signin" | "signup";
-type UserRole = "student" | "company" | "admin";
 const AUTH_COOKIE_NAME = "fj_token";
 
 function setAuthCookie(token: string) {
@@ -233,14 +234,12 @@ export default function LoginPage() {
       const userRef = doc(firebaseDb, "users", user.uid);
       await setDoc(
         userRef,
-        {
+        withCreatedAndUpdatedAt({
           uid: user.uid,
           email: user.email ?? "",
           role: nextRole,
           provider: user.providerData[0]?.providerId ?? "password",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        },
+        }),
         { merge: true }
       );
 

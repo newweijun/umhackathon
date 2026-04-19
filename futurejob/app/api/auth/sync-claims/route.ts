@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-type AllowedRole = "admin" | "company" | "student";
-
-function isAllowedRole(value: unknown): value is AllowedRole {
-  return value === "admin" || value === "company" || value === "student";
-}
+import { isUserRole } from "@/lib/domain/enums";
 
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get("authorization") ?? "";
@@ -33,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     const role = userDoc.data()?.role;
-    if (!isAllowedRole(role)) {
+    if (!isUserRole(role)) {
       return NextResponse.json({ error: "Invalid or missing role in Firestore." }, { status: 400 });
     }
 

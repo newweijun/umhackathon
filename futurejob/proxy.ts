@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { canAccessPath } from "@/lib/auth/route-roles";
 
 const AUTH_COOKIE_NAME = "fj_token";
 const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
@@ -38,13 +39,7 @@ export async function proxy(request: NextRequest) {
 
   try {
     const { payload } = await verifyFirebaseToken(token);
-    const role = payload.role;
-
-    if (pathname.startsWith("/company") && role !== "company") {
-      return redirectToLogin(request);
-    }
-
-    if (pathname.startsWith("/admin") && role !== "admin") {
+    if (!canAccessPath(pathname, payload.role)) {
       return redirectToLogin(request);
     }
 

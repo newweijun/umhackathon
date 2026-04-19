@@ -157,6 +157,51 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // -------- notifications --------
+    // Example: notifications/{notificationId}
+    // Required fields: userId, title, body, type, read
+    match /notifications/{notificationId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      // Write is limited to admin/server paths.
+      allow create: if isAdmin();
+
+      // User can only mark own notification as read.
+      allow update: if isAdmin()
+        || (isSignedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.title == resource.data.title
+          && request.resource.data.body == resource.data.body
+          && request.resource.data.type == resource.data.type
+          && request.resource.data.applicationId == resource.data.applicationId);
+
+      allow delete: if isAdmin();
+    }
+
+    // -------- interviews --------
+    // Example: interviews/{interviewId}
+    // Required fields: applicationId, companyId, studentId, scheduledAt, status
+    match /interviews/{interviewId} {
+      allow read: if isAdmin()
+        || (isCompany() && resource.data.companyId == request.auth.uid)
+        || (isStudent() && resource.data.studentId == request.auth.uid);
+
+      allow create: if isAdmin()
+        || (isCompany() && request.resource.data.companyId == request.auth.uid);
+
+      allow update: if isAdmin()
+        || (isCompany()
+          && resource.data.companyId == request.auth.uid
+          && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.studentId == resource.data.studentId
+          && request.resource.data.applicationId == resource.data.applicationId);
+
+      allow delete: if isAdmin()
+        || (isCompany() && resource.data.companyId == request.auth.uid);
+    }
+
     // -------- audit logs --------
     // Write from server/admin only, read by admin only.
     match /auditLogs/{logId} {

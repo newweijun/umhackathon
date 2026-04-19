@@ -44,6 +44,45 @@ export type AdminDashboardData = {
   recentAuditLogs: AdminRecentRow[];
 };
 
+export type AdminUsersPageData = {
+  totalUsers: number;
+  totalJobs: number;
+  totalApplications: number;
+  users: Array<{
+    id: string;
+    uid: string;
+    email: string;
+    role: string;
+    provider: string;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  counts: Record<string, number>;
+};
+
+export type AdminJobsPageData = {
+  totalJobs: number;
+  totalApplications: number;
+  totalRatings: number;
+  jobs: Array<{
+    id: string;
+    title: string;
+    companyId: string;
+    status: string;
+    createdAt: string;
+  }>;
+  counts: Record<string, number>;
+};
+
+export type AdminModerationPageData = {
+  pendingApplications: AdminRecentRow[];
+  recentAuditLogs: AdminRecentRow[];
+  totalUsers: number;
+  userCounts: Record<string, number>;
+  totalPending: number;
+  totalAuditLogs: number;
+};
+
 function asText(value: unknown) {
   if (typeof value === "string") {
     return value.trim() ? value : "-";
@@ -206,7 +245,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   };
 }
 
-export async function getAdminUsersPageData() {
+export async function getAdminUsersPageData(): Promise<AdminUsersPageData> {
   const [usersSnapshot, jobsSnapshot, applicationsSnapshot] = await Promise.all([
     getCollectionSnapshotOrEmpty(
       adminDb.collection("users").orderBy("createdAt", "desc").limit(50).get(),
@@ -240,7 +279,7 @@ export async function getAdminUsersPageData() {
   };
 }
 
-export async function getAdminJobsPageData() {
+export async function getAdminJobsPageData(): Promise<AdminJobsPageData> {
   const [jobsSnapshot, applicationsSnapshot, ratingsSnapshot] = await Promise.all([
     getCollectionSnapshotOrEmpty(
       adminDb.collection("jobs").orderBy("createdAt", "desc").limit(50).get(),
@@ -272,7 +311,7 @@ export async function getAdminJobsPageData() {
   };
 }
 
-export async function getAdminModerationPageData() {
+export async function getAdminModerationPageData(): Promise<AdminModerationPageData> {
   const [applicationsSnapshot, auditSnapshot, usersSnapshot] = await Promise.all([
     getCollectionSnapshotOrEmpty(
       adminDb.collection("applications").orderBy("createdAt", "desc").limit(50).get(),

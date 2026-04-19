@@ -11,8 +11,9 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { firebaseDb } from "@/lib/firebase/client";
+import { type JobStatus as DomainJobStatus } from "@/lib/domain/enums";
 
-export type JobStatus = "draft" | "open" | "closed";
+export type JobStatus = DomainJobStatus;
 
 export interface JobRecord {
   id: string;

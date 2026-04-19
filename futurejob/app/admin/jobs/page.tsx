@@ -38,7 +38,7 @@ export default async function AdminJobsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {data.jobs.map((job) => (
+              {data.jobs.map((job: { id: string; title: string; companyId: string; status: string; createdAt: string }) => (
                 <tr key={job.id}>
                   <td className="px-4 py-3 font-medium text-slate-900">{job.title}</td>
                   <td className="px-4 py-3 text-slate-500">{job.companyId}</td>

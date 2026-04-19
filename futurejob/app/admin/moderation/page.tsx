@@ -33,7 +33,7 @@ export default async function AdminModerationPage() {
             <p className="text-sm text-slate-500">No pending applications right now.</p>
           ) : (
             <div className="space-y-4">
-              {data.pendingApplications.map((item) => (
+              {data.pendingApplications.map((item: { id: string; title: string; subtitle: string; meta: string }) => (
                 <div key={item.id} className="rounded-xl bg-slate-50/80 px-4 py-3">
                   <p className="font-medium text-slate-900">{item.title}</p>
                   <p className="text-sm text-slate-500">{item.subtitle}</p>
@@ -50,7 +50,7 @@ export default async function AdminModerationPage() {
             <p className="text-sm text-slate-500">No audit records yet.</p>
           ) : (
             <div className="space-y-4">
-              {data.recentAuditLogs.map((item) => (
+              {data.recentAuditLogs.map((item: { id: string; title: string; subtitle: string; meta: string }) => (
                 <div key={item.id} className="rounded-xl bg-slate-50/80 px-4 py-3">
                   <p className="font-medium text-slate-900">{item.title}</p>
                   <p className="text-sm text-slate-500">{item.subtitle}</p>
