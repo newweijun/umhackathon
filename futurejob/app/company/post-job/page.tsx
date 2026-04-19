@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Sparkles, Building2, MapPin, DollarSign, Send } from "lucide-react";
-import { MotionButton } from "@/components/ui/MotionButton";
+import { MotionButton } from "@/components/ui/company_view/MotionButton";
 
 export default function PostJob() {
   const [isGenerating, setIsGenerating] = useState(false);

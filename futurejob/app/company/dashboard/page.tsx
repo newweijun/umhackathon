@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Filter, CheckCircle2, XCircle, ChevronRight } from "lucide-react";
-import { SearchBar } from "@/components/ui/SearchBar";
+import { SearchBar } from "@/components/ui/company_view/SearchBar";
 
 // Mock Data
 const mockApplicants = [
