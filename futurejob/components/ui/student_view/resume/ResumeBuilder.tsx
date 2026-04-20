@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { Download, Trash2 } from "lucide-react";
+import { firebaseAuth } from "@/lib/firebase/client";
+import { saveResumeRecord } from "@/lib/services/workflows";
 
 export interface ResumeData {
   fullName: string;
@@ -47,35 +49,30 @@ export default function ResumeBuilder() {
     setIsGenerating(true);
 
     try {
-      // Dynamically import the library ONLY on the client side
-      // This prevents the Next.js "self is not defined" SSR error
       const html2pdf = (await import("html2pdf.js")).default;
-
       const element = document.getElementById("resume-preview");
-
-      if (!element) {
-        console.error("Could not find the resume preview element.");
-        setIsGenerating(false);
-        return;
-      }
+      if (!element) return;
 
       const opt = {
-        margin: 0,
-        filename: `${formData.fullName.replace(/\s+/g, "_")}_Resume.pdf`,
-        image: { type: "jpeg", quality: 1 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+        /* ... your existing options ... */
       };
-
-      // Await the generation process
       await html2pdf().set(opt).from(element).save();
+
+      // --- NEW LOGIC: Save to Firebase after successful PDF generation ---
+      const user = firebaseAuth.currentUser;
+      if (user) {
+        await saveResumeRecord({
+          studentId: user.uid,
+          targetRole: "Generated Resume", // Or take from a specific input field
+          atsScore: Math.floor(Math.random() * (95 - 70 + 1)) + 70, // Mocking an AI score between 70-95 for now
+        });
+      }
     } catch (error) {
       console.error("PDF generation failed:", error);
     } finally {
       setIsGenerating(false);
     }
   };
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full animate-in fade-in duration-300">
       {/* --- FORM SECTION --- */}

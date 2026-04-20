@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Sparkles,
   Briefcase,
@@ -10,11 +10,13 @@ import {
   XCircle,
 } from "lucide-react";
 import { JobMatch } from "@/lib/types/jobs";
+import { applyForJob } from "@/lib/services/workflows";
+import { firebaseAuth } from "@/lib/firebase/client";
 
 interface JobMatchDetailsProps {
   job: JobMatch;
   onClose: () => void;
-  onApply: () => void;
+  onApply?: () => void; // Optional if parent needs to do anything extra
 }
 
 export default function JobMatchDetails({
@@ -22,6 +24,42 @@ export default function JobMatchDetails({
   onClose,
   onApply,
 }: JobMatchDetailsProps) {
+  // 1. Moved state INSIDE the component
+  const [isApplying, setIsApplying] = useState(false);
+
+  // 2. Moved handler INSIDE the component
+  const handleApplyClick = async () => {
+    const user = firebaseAuth.currentUser;
+
+    if (!user) {
+      alert("Please sign in to apply for jobs.");
+      return;
+    }
+
+    setIsApplying(true);
+    try {
+      // 3. Replaced 'selectedJob' with the 'job' prop
+      await applyForJob({
+        studentId: user.uid,
+        jobId: job.id,
+        companyId: job.company, // Ensure this maps to your actual company ID
+        role: job.role,
+        companyName: job.company,
+        matchScore: job.matchScore,
+      });
+
+      alert("Success! You can now track this in your Dashboard.");
+
+      if (onApply) onApply(); // Trigger parent's apply logic if needed
+      onClose(); // Close the slide-out panel
+    } catch (error) {
+      console.error("Failed to apply:", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
   return (
     <>
       <div
@@ -121,10 +159,12 @@ export default function JobMatchDetails({
         {/* Footer Actions */}
         <div className="p-4 md:p-6 border-t border-slate-100 bg-white shrink-0 flex justify-end">
           <button
-            onClick={onApply}
-            className="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-sm transition-colors cursor-pointer flex justify-center items-center gap-2"
+            onClick={handleApplyClick}
+            disabled={isApplying}
+            className="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-sm transition-colors cursor-pointer flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            <Briefcase className="w-4 h-4" /> 1-Click Apply
+            <Briefcase className="w-4 h-4" />
+            {isApplying ? "Applying..." : "1-Click Apply"}
           </button>
         </div>
       </div>
