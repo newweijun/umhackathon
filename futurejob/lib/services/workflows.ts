@@ -13,9 +13,15 @@ import { withCreatedAndUpdatedAt, withUpdatedAt } from "@/lib/services/timestamp
 export type CreateJobInput = {
   companyId: string;
   title: string;
-  expectations: string;
+  expectations?: string;
   salaryRange?: string;
   locationType?: string;
+  locationDetails?: string;
+  employmentType?: string;
+  minQualification?: string;
+  preferredQualification?: string;
+  aboutJob?: string;
+  keyResponsibilities?: string;
   status?: JobStatus;
 };
 
@@ -24,9 +30,15 @@ export async function createJob(input: CreateJobInput) {
   const payload = withCreatedAndUpdatedAt({
     companyId: input.companyId,
     title: input.title,
-    expectations: input.expectations,
+    expectations: input.expectations ?? "",
     salaryRange: input.salaryRange ?? "",
     locationType: input.locationType ?? "Remote",
+    locationDetails: input.locationDetails ?? "",
+    employmentType: input.employmentType ?? "Full time",
+    minQualification: input.minQualification ?? "",
+    preferredQualification: input.preferredQualification ?? "",
+    aboutJob: input.aboutJob ?? "",
+    keyResponsibilities: input.keyResponsibilities ?? "",
     status: input.status ?? "draft",
   });
 
