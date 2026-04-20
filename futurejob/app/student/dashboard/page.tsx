@@ -205,7 +205,7 @@ export default function StudentDashboard() {
                       colSpan={3}
                       className="px-8 py-16 text-center text-slate-500"
                     >
-                      You haven't applied to any jobs yet.
+                      You havent applied to any jobs yet.
                     </td>
                   </tr>
                 ) : (
