@@ -10,9 +10,9 @@ import {
   query,
   where,
   type DocumentData,
+  type DocumentSnapshot,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
-import { doc, getDoc, type DocumentSnapshot } from "firebase/firestore";
 import { firebaseDb } from "@/lib/firebase/client";
 import { type JobStatus as DomainJobStatus } from "@/lib/domain/enums";
 
@@ -92,6 +92,8 @@ export async function getJobById(jobId: string): Promise<JobRecord | null> {
     createdAt: data.createdAt,
     ...data,
   } as JobRecord;
+}
+
 function toJobRecordFromDoc(
   snapshot: DocumentSnapshot<DocumentData>,
 ): JobRecord | null {
