@@ -18,7 +18,7 @@ const navItems = [
   { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { name: "Resume Lab", href: "/student/resume", icon: FileText },
   { name: "Job Matches", href: "/student/match", icon: Target },
-  { name: "AI Interviews", href: "/student/interviews", icon: Video },
+  { name: "Interviews", href: "/student/interviews", icon: Video },
   { name: "Messages", href: "/student/messages", icon: MessageSquare },
 ];
 
