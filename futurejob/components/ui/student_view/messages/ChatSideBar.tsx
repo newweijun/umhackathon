@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Chat } from "@/app/chat";
+import { Chat } from "@/lib/types/chat";
 
 interface ChatSidebarProps {
   chats: Chat[];
