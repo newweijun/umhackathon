@@ -185,15 +185,36 @@ export async function saveResumeRecord(input: {
 // 3. Function to Fetch Past Resumes
 export async function getStudentResumes(studentId: string) {
   const resumesRef = collection(firebaseDb, "resumes");
-  const q = query(
+  const indexedQuery = query(
     resumesRef,
     where("studentId", "==", studentId),
     orderBy("createdAt", "desc"),
   );
 
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  }));
+  try {
+    const snapshot = await getDocs(indexedQuery);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    const isIndexBuildingError =
+      error instanceof Error &&
+      /requires an index|index is currently building/i.test(error.message);
+
+    if (!isIndexBuildingError) {
+      throw error;
+    }
+
+    const fallbackQuery = query(resumesRef, where("studentId", "==", studentId));
+    const fallbackSnapshot = await getDocs(fallbackQuery);
+
+    return fallbackSnapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => {
+        const aMs = (a.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+        const bMs = (b.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+        return bMs - aMs;
+      });
+  }
 }

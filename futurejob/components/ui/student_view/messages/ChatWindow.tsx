@@ -6,16 +6,20 @@ import { Chat } from "@/lib/types/chat";
 
 interface ChatWindowProps {
   chat: Chat;
+  onSendMessage?: (chat: Chat, text: string) => Promise<void>;
+  sending?: boolean;
 }
 
-export default function ChatWindow({ chat }: ChatWindowProps) {
+export default function ChatWindow({ chat, onSendMessage, sending = false }: ChatWindowProps) {
   const [inputText, setInputText] = useState("");
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
 
-    console.log(`Sending to ${chat.company}:`, inputText);
+    if (onSendMessage) {
+      await onSendMessage(chat, inputText.trim());
+    }
     setInputText("");
   };
 
@@ -87,7 +91,7 @@ export default function ChatWindow({ chat }: ChatWindowProps) {
           />
           <button
             type="submit"
-            disabled={!inputText.trim()}
+            disabled={!inputText.trim() || sending}
             className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send size={16} />

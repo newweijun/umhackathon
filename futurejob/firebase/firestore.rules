@@ -12,16 +12,28 @@ service cloud.firestore {
         : "";
     }
 
+    function profileRole() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role is string
+          ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          : "";
+    }
+
+    function hasRole(expectedRole) {
+      return role() == expectedRole || profileRole() == expectedRole;
+    }
+
     function isAdmin() {
-      return role() == "admin";
+      return hasRole("admin");
     }
 
     function isCompany() {
-      return role() == "company";
+      return hasRole("company");
     }
 
     function isStudent() {
-      return role() == "student";
+      return hasRole("student");
     }
 
     function isSelf(uid) {
@@ -101,8 +113,9 @@ service cloud.firestore {
     // Required fields: studentId, companyId, jobId, status
     match /applications/{applicationId} {
       allow read: if isAdmin()
-        || (isStudent() && resource.data.studentId == request.auth.uid)
-        || (isCompany() && resource.data.companyId == request.auth.uid);
+        || isSignedIn()
+        || (isSignedIn() && resource.data.studentId == request.auth.uid)
+        || (isSignedIn() && resource.data.companyId == request.auth.uid);
 
       // Student submits an application to an open job.
       allow create: if isStudent()
@@ -155,6 +168,25 @@ service cloud.firestore {
         && request.resource.data.participants.size() == 2;
 
       allow update, delete: if isAdmin();
+    }
+
+    // -------- resumes --------
+    // Example: resumes/{resumeId}
+    // Required fields: studentId, role, score
+    match /resumes/{resumeId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.studentId == request.auth.uid);
+
+      allow create: if isSignedIn()
+        && request.resource.data.studentId == request.auth.uid;
+
+      allow update: if isAdmin()
+        || (isSignedIn()
+          && resource.data.studentId == request.auth.uid
+          && request.resource.data.studentId == resource.data.studentId);
+
+      allow delete: if isAdmin()
+        || (isSignedIn() && resource.data.studentId == request.auth.uid);
     }
 
     // -------- notifications --------

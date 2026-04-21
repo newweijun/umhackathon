@@ -1,5 +1,5 @@
 export interface Message {
-  id: number;
+  id: string;
   text: string;
   sender: string;
   isMe: boolean;
@@ -8,6 +8,7 @@ export interface Message {
 
 export interface Chat {
   id: string;
+  participantId: string;
   company: string;
   avatar: string;
   lastMessage: string;
