@@ -14,6 +14,7 @@ export default function Interviews() {
   const [candidates, setCandidates] = useState<Map<string, CandidateProfileRecord>>(new Map());
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [usedFallback, setUsedFallback] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
@@ -26,10 +27,11 @@ export default function Interviews() {
     if (!currentUser) return;
     setLoading(true);
     try {
-      const data = await getCompanyInterviews(currentUser.uid);
-      setInterviews(data);
+      const result = await getCompanyInterviews(currentUser.uid);
+      setInterviews(result.interviews);
+      setUsedFallback(result.usedFallback);
       
-      const studentIds = data.map(i => i.studentId);
+      const studentIds = result.interviews.map(i => i.studentId);
       if (studentIds.length > 0) {
         const profiles = await getCandidateProfilesByIds(studentIds);
         setCandidates(profiles);
@@ -59,6 +61,12 @@ export default function Interviews() {
           Schedule Interview
         </button>
       </header>
+
+      {usedFallback ? (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Index is still building, so fallback loading is enabled. The page is available now, and it will automatically switch back to the indexed query once the index is ready.
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center p-8 text-slate-500 italic">

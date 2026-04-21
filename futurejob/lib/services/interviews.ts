@@ -28,6 +28,11 @@ export interface InterviewRecord {
   createdAt: any;
 }
 
+export interface CompanyInterviewsResult {
+  interviews: InterviewRecord[];
+  usedFallback: boolean;
+}
+
 export async function scheduleInterview(
   data: Omit<InterviewRecord, "id" | "createdAt" | "status">
 ): Promise<string> {
@@ -42,19 +47,50 @@ export async function scheduleInterview(
 
 export async function getCompanyInterviews(
   companyId: string
-): Promise<InterviewRecord[]> {
+): Promise<CompanyInterviewsResult> {
   const interviewsRef = collection(firebaseDb, "interviews");
-  const q = query(
+  const indexedQuery = query(
     interviewsRef,
     where("companyId", "==", companyId),
     orderBy("scheduledAt", "asc")
   );
 
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as InterviewRecord[];
+  try {
+    const snapshot = await getDocs(indexedQuery);
+    return {
+      interviews: snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      })) as InterviewRecord[],
+      usedFallback: false,
+    };
+  } catch (error) {
+    const isIndexBuildingError =
+      error instanceof Error &&
+      /requires an index|index is currently building/i.test(error.message);
+
+    if (!isIndexBuildingError) {
+      throw error;
+    }
+
+    const fallbackQuery = query(
+      interviewsRef,
+      where("companyId", "==", companyId)
+    );
+
+    const fallbackSnapshot = await getDocs(fallbackQuery);
+    return {
+      interviews: (fallbackSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      })) as InterviewRecord[]).sort((a, b) => {
+      const aMs = a.scheduledAt?.toMillis?.() ?? new Date(a.scheduledAt ?? 0).getTime();
+      const bMs = b.scheduledAt?.toMillis?.() ?? new Date(b.scheduledAt ?? 0).getTime();
+      return aMs - bMs;
+      }),
+      usedFallback: true,
+    };
+  }
 }
 
 export async function updateInterviewStatus(
