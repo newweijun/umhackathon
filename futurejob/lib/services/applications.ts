@@ -115,3 +115,4 @@ export async function getCompanyApplicationsByJob(
   const snapshot = await getDocs(applicationsQuery);
   return snapshot.docs.map(toApplicationRecord);
 }
+

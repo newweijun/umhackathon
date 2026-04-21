@@ -11,15 +11,18 @@ import {
   getCompanyRatingResults,
   getRatingForApplication,
   getJobById,
+  updateApplicationStatus,
   type ApplicationRecord,
   type ApplicationStatus,
   type JobRecord,
 } from "@/lib/services";
 import { firebaseAuth } from "@/lib/firebase/client";
 import { SearchBar } from "@/components/ui/company_view/SearchBar";
+import ScheduleInterviewModal from "@/components/ui/company_view/ScheduleInterviewModal";
 
 type DashboardApplicant = {
   id: string;
+  studentId: string;
   name: string;
   skills: string;
   match: number;
@@ -129,6 +132,60 @@ export default function JobCandidatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedApplicant, setSelectedApplicant] = useState<DashboardApplicant | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
+
+  const fetchApplicants = async (userId: string) => {
+    try {
+      // Fetch job details
+      const jobData = await getJobById(jobId);
+      if (!jobData || jobData.companyId !== userId) {
+        setError("Job not found or you do not have permission.");
+        setLoading(false);
+        return;
+      }
+      setJob(jobData);
+
+      // Fetch applications for this specific job
+      const results = await Promise.all(
+        COMPANY_DASHBOARD_STATUSES.map((status) =>
+          getJobApplicationsByStatus(jobId, status, 50)
+        )
+      );
+
+      const applications = results.flat();
+      const candidateProfileMap = await getCandidateProfilesByIds(
+        applications.map((application) => application.studentId)
+      );
+
+      const ratingResults = await getCompanyRatingResults(userId, 500);
+      const ratingLookup = createRatingLookup(ratingResults);
+
+      const mapped = applications.map((application) => {
+        const candidateProfile = candidateProfileMap.get(application.studentId) ?? null;
+        const ratingResult = getRatingForApplication(
+          ratingLookup,
+          application.id,
+          application.studentId,
+          application.jobId
+        );
+
+        return buildApplicantFromSources(
+          application,
+          candidateProfile,
+          ratingResult
+        );
+      });
+      const deduplicated = Array.from(new Map(mapped.map((item) => [item.id, item])).values());
+      setApplicants(deduplicated);
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Failed to load applicants.";
+      setError(message);
+      setApplicants([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!jobId) return;
@@ -144,60 +201,33 @@ export default function JobCandidatesPage() {
 
       setLoading(true);
       setError(null);
-
-      try {
-        // Fetch job details
-        const jobData = await getJobById(jobId);
-        if (!jobData || jobData.companyId !== user.uid) {
-          setError("Job not found or you do not have permission.");
-          setLoading(false);
-          return;
-        }
-        setJob(jobData);
-
-        // Fetch applications for this specific job
-        const results = await Promise.all(
-          COMPANY_DASHBOARD_STATUSES.map((status) =>
-            getJobApplicationsByStatus(jobId, status, 50)
-          )
-        );
-
-        const applications = results.flat();
-        const candidateProfileMap = await getCandidateProfilesByIds(
-          applications.map((application) => application.studentId)
-        );
-
-        const ratingResults = await getCompanyRatingResults(user.uid, 500);
-        const ratingLookup = createRatingLookup(ratingResults);
-
-        const mapped = applications.map((application) => {
-          const candidateProfile = candidateProfileMap.get(application.studentId) ?? null;
-          const ratingResult = getRatingForApplication(
-            ratingLookup,
-            application.id,
-            application.studentId,
-            application.jobId
-          );
-
-          return buildApplicantFromSources(
-            application,
-            candidateProfile,
-            ratingResult
-          );
-        });
-        const deduplicated = Array.from(new Map(mapped.map((item) => [item.id, item])).values());
-        setApplicants(deduplicated);
-      } catch (fetchError) {
-        const message = fetchError instanceof Error ? fetchError.message : "Failed to load applicants.";
-        setError(message);
-        setApplicants([]);
-      } finally {
-        setLoading(false);
-      }
+      await fetchApplicants(user.uid);
     });
 
     return unsubscribe;
   }, [jobId]);
+
+  const handleStatusUpdate = async (applicantId: string, studentId: string, nextStatus: ApplicationStatus, reason?: string) => {
+    const user = firebaseAuth.currentUser;
+    if (!user) return;
+
+    setUpdatingId(applicantId);
+    try {
+      await updateApplicationStatus({
+        applicationId: applicantId,
+        nextStatus,
+        actorRole: "company",
+        studentIdForNotification: studentId,
+        rejectionReason: reason
+      });
+      await fetchApplicants(user.uid);
+    } catch (err) {
+      console.error("Error updating status:", err);
+      alert("Failed to update status.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!selectedApplicant) {
@@ -309,13 +339,32 @@ export default function JobCandidatesPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           <button
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
+                            disabled={updatingId === applicant.id || applicant.status === "Approved"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStatusUpdate(applicant.id, applicant.studentId, "approved");
+                            }}
+                            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                              applicant.status === "Approved" 
+                                ? "text-slate-300" 
+                                : "text-emerald-600 hover:bg-emerald-50"
+                            }`}
                             title="Approve"
                           >
                             <CheckCircle2 className="w-5 h-5" />
                           </button>
                           <button
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                            disabled={updatingId === applicant.id || applicant.status === "Rejected"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const reason = prompt("Enter rejection reason (optional):") || "";
+                              handleStatusUpdate(applicant.id, applicant.studentId, "rejected", reason);
+                            }}
+                            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                              applicant.status === "Rejected" 
+                                ? "text-slate-300" 
+                                : "text-rose-500 hover:bg-rose-50"
+                            }`}
                             title="Reject"
                           >
                             <XCircle className="w-5 h-5" />
@@ -361,12 +410,34 @@ export default function JobCandidatesPage() {
               </div>
 
               <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mt-8 mb-3">Next Steps</h3>
-              <button className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm shadow-indigo-200 transition-colors cursor-pointer flex justify-center items-center gap-2">
+              <button 
+                onClick={() => setIsInterviewModalOpen(true)}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm shadow-indigo-200 transition-colors cursor-pointer flex justify-center items-center gap-2"
+              >
                 Schedule Interview <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         </>
+      )}
+
+      {isInterviewModalOpen && selectedApplicant && (
+        <ScheduleInterviewModal 
+          isOpen={isInterviewModalOpen}
+          onClose={() => setIsInterviewModalOpen(false)}
+          onSuccess={() => {
+            setIsInterviewModalOpen(false);
+            alert("Interview scheduled successfully!");
+          }}
+          companyId={firebaseAuth.currentUser?.uid || ""}
+          initialApplication={{
+            id: selectedApplicant.id,
+            studentId: selectedApplicant.studentId,
+            jobId: jobId,
+            companyId: firebaseAuth.currentUser?.uid || "",
+            status: "approved"
+          } as any}
+        />
       )}
     </div>
   );

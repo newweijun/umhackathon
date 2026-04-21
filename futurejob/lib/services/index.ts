@@ -4,3 +4,6 @@ export * from "./candidateProfiles";
 export * from "./ratingResults";
 export * from "./workflows";
 export * from "./timestamps";
+export * from "./messages";
+export * from "./interviews";
+export * from "./notifications";
