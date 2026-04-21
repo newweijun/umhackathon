@@ -25,7 +25,7 @@ export interface RatingResultRecord {
 }
 
 function toRatingResultRecord(
-  snapshot: QueryDocumentSnapshot<DocumentData>
+  snapshot: QueryDocumentSnapshot<DocumentData>,
 ): RatingResultRecord {
   const data = snapshot.data();
   return {
@@ -43,14 +43,14 @@ function buildStudentJobKey(studentId?: string, jobId?: string) {
 
 export async function getCompanyRatingResults(
   companyId: string,
-  take = 100
+  take = 100,
 ): Promise<RatingResultRecord[]> {
   const ratingRef = collection(firebaseDb, "ratingResults");
   const ratingQuery = query(
     ratingRef,
     where("companyId", "==", companyId),
     orderBy("createdAt", "desc"),
-    limit(take)
+    limit(take),
   );
 
   const snapshot = await getDocs(ratingQuery);
@@ -82,7 +82,7 @@ export function getRatingForApplication(
   lookup: ReturnType<typeof createRatingLookup>,
   applicationId: string,
   studentId: string,
-  jobId: string
+  jobId: string,
 ) {
   const byApplication = lookup.byApplicationId.get(applicationId);
   if (byApplication) {
@@ -95,4 +95,19 @@ export function getRatingForApplication(
   }
 
   return lookup.byStudentJob.get(studentJobKey) ?? null;
+}
+export async function getStudentRatingResults(
+  studentId: string,
+  take = 100,
+): Promise<RatingResultRecord[]> {
+  const ratingRef = collection(firebaseDb, "ratingResults");
+  const ratingQuery = query(
+    ratingRef,
+    where("studentId", "==", studentId),
+    orderBy("createdAt", "desc"),
+    limit(take),
+  );
+
+  const snapshot = await getDocs(ratingQuery);
+  return snapshot.docs.map(toRatingResultRecord);
 }

@@ -77,7 +77,9 @@ export default function Messages() {
     <div className="min-h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] flex flex-col">
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
-        <p className="text-slate-500">Keep in touch with your approved applicants.</p>
+        <p className="text-slate-500">
+          Keep in touch with your approved applicants.
+        </p>
       </header>
 
       <div className="flex-1 glass-card flex flex-col md:flex-row overflow-hidden border border-slate-200 rounded-xl bg-white shadow-sm">

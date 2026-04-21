@@ -10,6 +10,7 @@ import {
   query,
   where,
   type DocumentData,
+  type DocumentSnapshot,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { firebaseDb } from "@/lib/firebase/client";
@@ -42,7 +43,7 @@ function toJobRecord(snapshot: QueryDocumentSnapshot<DocumentData>): JobRecord {
 export async function getCompanyJobsByStatus(
   companyId: string,
   status: JobStatus,
-  take = 20
+  take = 20,
 ): Promise<JobRecord[]> {
   const jobsRef = collection(firebaseDb, "jobs");
   const jobsQuery = query(
@@ -50,7 +51,7 @@ export async function getCompanyJobsByStatus(
     where("companyId", "==", companyId),
     where("status", "==", status),
     orderBy("createdAt", "desc"),
-    limit(take)
+    limit(take),
   );
 
   const snapshot = await getDocs(jobsQuery);
@@ -60,14 +61,14 @@ export async function getCompanyJobsByStatus(
 // Index match: status + createdAt(desc)
 export async function getJobsByStatus(
   status: JobStatus,
-  take = 20
+  take = 20,
 ): Promise<JobRecord[]> {
   const jobsRef = collection(firebaseDb, "jobs");
   const jobsQuery = query(
     jobsRef,
     where("status", "==", status),
     orderBy("createdAt", "desc"),
-    limit(take)
+    limit(take),
   );
 
   const snapshot = await getDocs(jobsQuery);
@@ -91,4 +92,30 @@ export async function getJobById(jobId: string): Promise<JobRecord | null> {
     createdAt: data.createdAt,
     ...data,
   } as JobRecord;
+}
+
+function toJobRecordFromDoc(
+  snapshot: DocumentSnapshot<DocumentData>,
+): JobRecord | null {
+  if (!snapshot.exists()) return null;
+  const data = snapshot.data();
+  return { id: snapshot.id, ...data } as JobRecord;
+}
+
+export async function getJobDetailsByIds(
+  jobIds: string[],
+): Promise<Map<string, JobRecord>> {
+  const uniqueIds = Array.from(new Set(jobIds.filter(Boolean)));
+  if (uniqueIds.length === 0) return new Map();
+
+  const snapshots = await Promise.all(
+    uniqueIds.map((id) => getDoc(doc(firebaseDb, "jobs", id))),
+  );
+
+  const pairs = snapshots
+    .map(toJobRecordFromDoc)
+    .filter((record): record is JobRecord => record !== null)
+    .map((record) => [record.id, record] as const);
+
+  return new Map(pairs);
 }

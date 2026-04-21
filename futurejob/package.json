@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
+    "dev:turbo": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -20,6 +21,7 @@
     "firebase": "^12.12.0",
     "firebase-admin": "^13.8.0",
     "framer-motion": "^12.38.0",
+    "html2pdf.js": "^0.14.0",
     "jose": "^6.2.2",
     "lucide-react": "^1.8.0",
     "next": "16.2.4",

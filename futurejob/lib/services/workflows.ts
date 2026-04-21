@@ -1,6 +1,15 @@
 "use client";
 
-import { addDoc, collection, doc, updateDoc } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  updateDoc,
+  orderBy,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 import {
   type ApplicationStatus,
   type InterviewStatus,
@@ -8,7 +17,10 @@ import {
   type NotificationType,
 } from "@/lib/domain/enums";
 import { firebaseDb } from "@/lib/firebase/client";
-import { withCreatedAndUpdatedAt, withUpdatedAt } from "@/lib/services/timestamps";
+import {
+  withCreatedAndUpdatedAt,
+  withUpdatedAt,
+} from "@/lib/services/timestamps";
 
 export type CreateJobInput = {
   companyId: string;
@@ -64,7 +76,7 @@ export async function createNotification(input: CreateNotificationInput) {
       type: input.type,
       applicationId: input.applicationId ?? null,
       read: false,
-    })
+    }),
   );
 }
 
@@ -76,7 +88,9 @@ export type UpdateApplicationStatusInput = {
   studentIdForNotification?: string;
 };
 
-export async function updateApplicationStatus(input: UpdateApplicationStatusInput) {
+export async function updateApplicationStatus(
+  input: UpdateApplicationStatusInput,
+) {
   const applicationRef = doc(firebaseDb, "applications", input.applicationId);
 
   await updateDoc(
@@ -85,7 +99,7 @@ export async function updateApplicationStatus(input: UpdateApplicationStatusInpu
       status: input.nextStatus,
       rejectionReason: input.rejectionReason ?? null,
       statusUpdatedBy: input.actorRole,
-    })
+    }),
   );
 
   if (input.nextStatus === "rejected" && input.studentIdForNotification) {
@@ -131,6 +145,86 @@ export async function createInterview(input: CreateInterviewInput) {
       scheduledAt: input.scheduledAtISO,
       meetingLink: input.meetingLink ?? "",
       status: input.status ?? "scheduled",
-    })
+    }),
   );
+}
+export async function applyForJob(input: {
+  studentId: string;
+  jobId: string;
+  companyId: string;
+  role: string;
+  companyName: string;
+  matchScore: number;
+}) {
+  const applicationsRef = collection(firebaseDb, "applications");
+
+  // We denormalize 'role' and 'companyName' here so the dashboard
+  // can load instantly without doing 3 separate database joins.
+  const payload = withCreatedAndUpdatedAt({
+    studentId: input.studentId,
+    jobId: input.jobId,
+    companyId: input.companyId,
+    role: input.role,
+    companyName: input.companyName,
+    match: input.matchScore,
+    status: "applied",
+    feedback:
+      "Your application has been received and is waiting for employer review.",
+  });
+
+  return addDoc(applicationsRef, payload);
+}
+
+// 2. Function to Save a Resume Generation Record
+export async function saveResumeRecord(input: {
+  studentId: string;
+  targetRole: string;
+  atsScore: number;
+}) {
+  const resumesRef = collection(firebaseDb, "resumes");
+  return addDoc(
+    resumesRef,
+    withCreatedAndUpdatedAt({
+      studentId: input.studentId,
+      role: input.targetRole,
+      score: input.atsScore,
+    }),
+  );
+}
+
+// 3. Function to Fetch Past Resumes
+export async function getStudentResumes(studentId: string) {
+  const resumesRef = collection(firebaseDb, "resumes");
+  const indexedQuery = query(
+    resumesRef,
+    where("studentId", "==", studentId),
+    orderBy("createdAt", "desc"),
+  );
+
+  try {
+    const snapshot = await getDocs(indexedQuery);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    const isIndexBuildingError =
+      error instanceof Error &&
+      /requires an index|index is currently building/i.test(error.message);
+
+    if (!isIndexBuildingError) {
+      throw error;
+    }
+
+    const fallbackQuery = query(resumesRef, where("studentId", "==", studentId));
+    const fallbackSnapshot = await getDocs(fallbackQuery);
+
+    return fallbackSnapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => {
+        const aMs = (a.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+        const bMs = (b.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+        return bMs - aMs;
+      });
+  }
 }

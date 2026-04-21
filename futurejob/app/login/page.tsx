@@ -66,6 +66,8 @@ export default function LoginPage() {
   const hiddenAdminEnabled =
     isLocalHostReady && process.env.NODE_ENV !== "production" && searchParams.get("admin") === "1";
 
+  const nextParam = searchParams.get("next");
+
   useEffect(() => {
     setIsLocalHostReady(
       typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)
@@ -152,12 +154,17 @@ export default function LoginPage() {
 
         await user.getIdToken(true);
 
-        const targetPath =
+        const roleDefaultPath =
           role === "admin"
             ? "/admin/dashboard"
             : role === "company"
               ? "/company/dashboard"
-              : "/jobs";
+              : "/student/dashboard";
+
+        const isSafeNextPath =
+          typeof nextParam === "string" && nextParam.startsWith("/") && !nextParam.startsWith("//");
+
+        const targetPath = isSafeNextPath ? nextParam : roleDefaultPath;
         router.replace(targetPath);
       } catch (syncError) {
         const message = syncError instanceof Error ? syncError.message : "Failed to sync role claims.";
@@ -168,7 +175,7 @@ export default function LoginPage() {
     }
 
     syncClaimsAndRedirect();
-  }, [user, role, router]);
+  }, [user, role, router, nextParam]);
 
   const actionLabel = useMemo(() => {
     return mode === "signin" ? "Log in" : "Create account";
