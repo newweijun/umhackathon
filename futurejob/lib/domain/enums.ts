@@ -10,7 +10,7 @@ export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 export const INTERVIEW_STATUSES = ["scheduled", "completed", "cancelled"] as const;
 export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
 
-export const NOTIFICATION_TYPES = ["application_rejected", "interview_scheduled", "interview_updated"] as const;
+export const NOTIFICATION_TYPES = ["application_approved", "application_rejected", "interview_scheduled", "interview_updated"] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 export function isUserRole(value: unknown): value is UserRole {

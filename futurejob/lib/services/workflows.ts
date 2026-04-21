@@ -113,6 +113,16 @@ export async function updateApplicationStatus(
       applicationId: input.applicationId,
     });
   }
+
+  if (input.nextStatus === "approved" && input.studentIdForNotification) {
+    await createNotification({
+      userId: input.studentIdForNotification,
+      title: "Application Approved!",
+      body: "Congratulations! Your application has been approved. You can now chat with the company and schedule an interview.",
+      type: "application_approved",
+      applicationId: input.applicationId,
+    });
+  }
 }
 
 export type CreateInterviewInput = {

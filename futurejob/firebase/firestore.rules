@@ -158,14 +158,14 @@ service cloud.firestore {
     }
 
     // -------- messages (optional realtime chat) --------
-    // Example: messages/{messageId} with participants: [uid1, uid2]
     match /messages/{messageId} {
       allow read: if isAdmin()
         || (isSignedIn() && request.auth.uid in resource.data.participants);
 
       allow create: if isSignedIn()
         && request.auth.uid in request.resource.data.participants
-        && request.resource.data.participants.size() == 2;
+        && request.resource.data.participants.size() == 2
+        && request.resource.data.applicationId is string;
 
       allow update, delete: if isAdmin();
     }

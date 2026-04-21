@@ -131,3 +131,4 @@ export async function getStudentApplications(
   const snapshot = await getDocs(applicationsQuery);
   return snapshot.docs.map(toApplicationRecord);
 }
+
