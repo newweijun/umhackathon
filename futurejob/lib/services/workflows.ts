@@ -14,9 +14,9 @@ import {
   type ApplicationStatus,
   type InterviewStatus,
   type JobStatus,
-  type NotificationType,
 } from "@/lib/domain/enums";
 import { firebaseDb } from "@/lib/firebase/client";
+import { createNotification } from "@/lib/services/notifications";
 import {
   withCreatedAndUpdatedAt,
   withUpdatedAt,
@@ -55,29 +55,6 @@ export async function createJob(input: CreateJobInput) {
   });
 
   return addDoc(jobsRef, payload);
-}
-
-export type CreateNotificationInput = {
-  userId: string;
-  title: string;
-  body: string;
-  type: NotificationType;
-  applicationId?: string;
-};
-
-export async function createNotification(input: CreateNotificationInput) {
-  const notificationsRef = collection(firebaseDb, "notifications");
-  return addDoc(
-    notificationsRef,
-    withCreatedAndUpdatedAt({
-      userId: input.userId,
-      title: input.title,
-      body: input.body,
-      type: input.type,
-      applicationId: input.applicationId ?? null,
-      read: false,
-    }),
-  );
 }
 
 export type UpdateApplicationStatusInput = {
@@ -206,7 +183,7 @@ export async function getStudentResumes(studentId: string) {
     return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    }));
+    })) as Array<{ id: string; createdAt?: { toMillis?: () => number } }>;
   } catch (error) {
     const isIndexBuildingError =
       error instanceof Error &&
@@ -218,13 +195,15 @@ export async function getStudentResumes(studentId: string) {
 
     const fallbackQuery = query(resumesRef, where("studentId", "==", studentId));
     const fallbackSnapshot = await getDocs(fallbackQuery);
+    const resumes = fallbackSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Array<{ id: string; createdAt?: { toMillis?: () => number } }>;
 
-    return fallbackSnapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .sort((a, b) => {
-        const aMs = (a.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
-        const bMs = (b.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
-        return bMs - aMs;
-      });
+    return resumes.sort((a, b) => {
+      const aMs = (a.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+      const bMs = (b.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+      return bMs - aMs;
+    });
   }
 }
