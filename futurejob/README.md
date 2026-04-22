@@ -13,9 +13,14 @@ Our research highlights **critical pain points** in existing platforms:
 5. **Systematic Barriers:** "Easy apply" features lead to massive applicant pools, removing genuine human connection from the hiring process.
 
 ## 🎯 Objective
-[cite_start]To design and build an AI-powered workflow system where Z.AI's GLM (General Language Model) acts as the central reasoning engine to transform fragmented recruitment workflows into an intelligent, automated process[cite: 5]. 
+Build a production-ready, role-based recruitment platform on Next.js + Firebase that supports:
 
-FutureJobSenpai is a stateful, adaptive workflow engine that dynamically bridges the gap between unstructured student profiles and strict corporate job requirements, facilitating end-to-end automation from resume parsing to interview scheduling.
+1. Reliable authentication and route protection.
+2. Structured job, application, interview, message, and notification flows.
+3. A clean service layer for Firestore queries and workflow actions.
+4. AI-ready integration points that can be upgraded from mock logic to real model orchestration.
+
+FutureJobSenpai currently ships a Firebase-first MVP with real data flows for core recruitment operations, while AI orchestration remains partially mocked and staged for the next iteration.
 
 ### How We Address the Pain Points:
 * **Application Tracker & Transparency:** A clear, milestone-driven dashboard so candidates always know their status.
@@ -28,32 +33,66 @@ FutureJobSenpai is a stateful, adaptive workflow engine that dynamically bridges
 * **Students / Job Seekers:** Individuals looking to generate professional profiles and find highly matched career opportunities.
 * **Companies (By Invitation):** Organizations looking to streamline administrative HR approvals and intelligently filter incoming applicants.
 
-## ✨ Core Features (The Agentic Workflow)
-Our system relies entirely on the GLM to orchestrate the following dynamic processes. If the GLM component is removed, the system will lose its ability to coordinate and execute the workflow effectively.
+## ✨ Core Features (Current MVP + AI Roadmap)
 
-### 🧑‍🎓 Student View
-* **Unstructured Profile Building:** Students input messy, unformatted text. The GLM parses this into a structured, optimized JSON resume.
-* **Proactive Ambiguity Resolution:** If a student's input is missing crucial context (e.g., listing "React" without specifying years of experience), the GLM pauses the workflow to ask clarifying questions before generating the profile.
-* **AI Match Engine (AI Model A):** Recommends perfectly matched companies and provides a calculated match percentage.
-* **Actionable Feedback Loop:** If rejected, the GLM analyzes the company's rejection reason alongside the student's resume to generate a personalized "Skill Quest" roadmap for improvement.
-* **Stateful Evaluator (Mock Interviews):** An AI-assisted chat session that acts as a proxy interviewer based on specific job requirements, dynamically updating the student's hidden skill matrix.
+### ✅ Implemented in Current Codebase
 
-### 🏢 Company View
-* **Natural Language Job Posting:** Companies provide unstructured conversational details about their expectations and company culture.
-* **Intelligent Applicant Filtering (AI Model B):** A high-density dashboard that filters incoming resumes based on the GLM's calculated rating system and provides a clear reasoning trace for the score.
-* **Agentic Tool Orchestration:** Upon approving a resume, the system automatically cross-references schedules and manages small meeting setups with the student.
-* **Automated Rejection Handling:** Generates and dispatches constructive feedback letters to applicants when a company rejects their profile.
+#### 🧑‍🎓 Student View
+* **Application Tracker:** Student dashboard reads real applications from Firestore and maps status to UI states.
+* **Resume Lab:** Resume builder and resume history persistence are connected to Firestore.
+* **Messaging UI:** Student message page supports real-time style chat flows through Firestore collections.
+* **Job Match UI:** Match cards/details are implemented, currently powered by seeded/mock ranking data.
+
+#### 🏢 Company View
+* **Job Posting Workflow:** Company can create and manage job listings.
+* **Candidate Review Flow:** Candidate listing and application status updates are wired to service layer functions.
+* **Interview Scheduling:** Interview creation and status updates are backed by Firestore.
+* **Company Messaging + Notification Hooks:** Messaging and notification services are available and reusable.
+
+#### 🛡️ Admin View
+* **Admin Dashboard:** Server-side aggregated metrics (users/jobs/applications/ratings/audit logs) are rendered from Firestore.
+* **Role Claim Sync:** API route synchronizes Firestore role to Firebase custom claims for access control.
+
+#### ⚙️ Platform Foundation
+* **Route Protection:** `proxy.ts` validates JWT and role-based path access for protected routes.
+* **Service Layer:** Query and workflow functions are centralized under `lib/services`.
+* **Firebase Rules + Emulator Tests:** Firestore/Storage rules and unit tests are included.
+
+### 🧠 Planned / In Progress (Not Fully Implemented Yet)
+* **GLM/Gemini-driven profile parsing from unstructured input**
+* **Clarifying-question loop for ambiguous candidate input**
+* **Model-based bidirectional match scoring and reasoning trace generation**
+* **Automated skill-gap feedback generation on rejection ("Skill Quest")**
+* **Stateful AI interviewer flow with adaptive evaluation updates**
 
 ## 🛠️ Tech Stack & System Architecture
 * **Framework:** Next.js (App Router), TypeScript (Web Based App)
 * **Frontend UI:** Tailwind CSS (Vibe Coding for high-density, industrial-tech data grids)
-* **Backend / API:** Next.js Serverless Functions (Vibe Coding API Webhooks)
-* **Database:** PostgreSQL (to store structured entity data)
-* **Authentication:** Firebase (Handling role-based access control)
-* **AI Orchestration Engine:** Z.AI GLM / Gemini API (The core reasoning engine)
+* **Backend / API:** Next.js Route Handlers + Service Layer modules
+* **Primary Data Store:** Firebase Cloud Firestore
+* **Authentication & Authorization:** Firebase Auth + Custom Claims + route guard in `proxy.ts`
+* **Storage:** Firebase Storage (rules and tests included; optional for Spark setup)
+* **Admin Data Access:** Firebase Admin SDK (`lib/firebase/admin.ts`)
+* **AI Orchestration:** Planned integration (current MVP uses mock/heuristic placeholders in selected screens)
 
 ## 🔄 System Flow
-We utilize a streamlined user experience flow, strictly utilizing role-based registration.
+Current implementation flow (MVP):
+
+1. **Authentication:** User signs up/signs in (Email/Password or Google) and selects role.
+2. **Claims Sync:** `/api/auth/sync-claims` syncs Firestore role to Firebase custom claims.
+3. **Route Guard:** Protected routes validate token + role via `proxy.ts`.
+4. **Student Operations:** Student views applications, resume records, matches (currently mocked), and messages.
+5. **Company Operations:** Company posts jobs, manages applications, schedules interviews, and uses messaging UI.
+6. **Admin Operations:** Admin dashboard reads aggregate operational metrics directly from Firestore.
+
+Target flow extension (roadmap):
+
+1. **AI parsing + clarification loop** for profile and requirement structuring.
+2. **Model-generated matching + reasoning traces** for recruiter and student dashboards.
+3. **Automated feedback generation** for rejected applications.
+4. **AI-assisted interview evaluation loop** with stateful score updates.
+
+Legacy concept flow (kept for roadmap reference):
 
 1. **Authentication:** User signs up and is immediately prompted to choose their role (Student or Company).
 2. **Student Flow:**
@@ -75,7 +114,7 @@ We utilize a streamlined user experience flow, strictly utilizing role-based reg
 
 | Team Member | Responsibilities |
 | :--- | :--- |
-| **Person 1** | **Core Setup & Infrastructure**<br>• Next.js setup (Middleware)<br>• Database & Auth: Prisma -> PostgreSQL, Firebase (Email/Google Login)<br>• AI Engine (Implementation of the AI rating system)<br>• Admin Dashboard<br>• Deployment |
+| **Person 1** | **Core Setup & Infrastructure**<br>• Next.js setup + route guard (`proxy.ts`)<br>• Firebase Auth + Firestore + Admin SDK integration<br>• Service layer foundations (`lib/services/*`)<br>• Admin Dashboard<br>• Deployment / CI |
 | **Person 2** | **Student Experience (UI & Backend)**<br>• Student Dashboard (Displaying resume, AI rating, status, etc.)<br>• Resume generating logic<br>• Status Tracker (Tracking approved or rejected applications)<br>• Job preference view |
 | **Person 3** | **Company Experience (UI & Backend)**<br>• Company View & Dashboard<br>• UI for showing expectations<br>• Chat Platform integration<br>• Notification system (Automated rejection alerts)<br>• Interview Session management |
 
@@ -83,15 +122,25 @@ We utilize a streamlined user experience flow, strictly utilizing role-based reg
 
 ## Firebase Setup (Next.js)
 
-1. Copy environment template:
+1. Create `.env.local` in project root and fill Firebase Web App config values:
 
 ```bash
-cp .env.example .env.local
+# Firebase Web SDK
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
+
+# Firebase Admin SDK
+FIREBASE_ADMIN_PROJECT_ID=
+FIREBASE_ADMIN_CLIENT_EMAIL=
+FIREBASE_ADMIN_PRIVATE_KEY=
 ```
 
-2. Fill `.env.local` with your Firebase Web App config values.
-
-3. Reuse the shared Firebase client module in client components:
+2. Reuse the shared Firebase client module in client components:
 
 ```ts
 import {
@@ -106,7 +155,7 @@ import {
 getFirebaseAnalytics();
 ```
 
-4. Never hardcode Firebase config directly inside pages/components.
+3. Never hardcode Firebase config directly inside pages/components.
 
 ## Spark Plan Note
 
@@ -154,6 +203,14 @@ Implemented query services:
 
 - `lib/services/jobs.ts`
 - `lib/services/applications.ts`
+- `lib/services/candidateProfiles.ts`
+- `lib/services/companyProfile.ts`
+- `lib/services/interviews.ts`
+- `lib/services/messages.ts`
+- `lib/services/notifications.ts`
+- `lib/services/ratingResults.ts`
+- `lib/services/workflows.ts`
+- `lib/services/timestamps.ts`
 
 Index-to-query alignment:
 
