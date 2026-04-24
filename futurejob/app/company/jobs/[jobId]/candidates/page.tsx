@@ -10,6 +10,7 @@ import {
   XCircle,
   ChevronRight,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 import {
   createRatingLookup,
@@ -149,7 +150,10 @@ export default function JobCandidatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedApplicant, setSelectedApplicant] =
     useState<DashboardApplicant | null>(null);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [updatingAction, setUpdatingAction] = useState<{
+    id: string;
+    status: ApplicationStatus;
+  } | null>(null);
   const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
 
   const fetchApplicants = async (userId: string) => {
@@ -239,7 +243,7 @@ export default function JobCandidatesPage() {
     const user = firebaseAuth.currentUser;
     if (!user) return;
 
-    setUpdatingId(applicantId);
+    setUpdatingAction({ id: applicantId, status: nextStatus });
     try {
       await updateApplicationStatus({
         applicationId: applicantId,
@@ -253,7 +257,7 @@ export default function JobCandidatesPage() {
       console.error("Error updating status:", err);
       alert("Failed to update status.");
     } finally {
-      setUpdatingId(null);
+      setUpdatingAction(null);
     }
   };
 
@@ -358,8 +362,14 @@ export default function JobCandidatesPage() {
                   applicants.map((applicant) => (
                     <tr
                       key={applicant.id}
-                      onClick={() => setSelectedApplicant(applicant)}
-                      className={`hover:bg-indigo-50/50 cursor-pointer transition-colors duration-150 ${selectedApplicant?.id === applicant.id ? "bg-indigo-50/80" : ""}`}
+                      onClick={() => updatingAction?.id !== applicant.id && setSelectedApplicant(applicant)}
+                      className={`transition-colors duration-150 ${
+                        selectedApplicant?.id === applicant.id ? "bg-indigo-50/80" : "hover:bg-indigo-50/50"
+                      } ${
+                        updatingAction?.id === applicant.id 
+                          ? "opacity-50 pointer-events-none" 
+                          : "cursor-pointer"
+                      }`}
                     >
                       <td className="px-6 py-4 font-medium text-slate-900">
                         {applicant.name}
@@ -397,7 +407,7 @@ export default function JobCandidatesPage() {
                         <div className="flex justify-end gap-2">
                           <button
                             disabled={
-                              updatingId === applicant.id ||
+                              !!updatingAction ||
                               applicant.status === "Approved"
                             }
                             onClick={(e) => {
@@ -415,11 +425,15 @@ export default function JobCandidatesPage() {
                             }`}
                             title="Approve"
                           >
-                            <CheckCircle2 className="w-5 h-5" />
+                            {updatingAction?.id === applicant.id && updatingAction.status === "approved" ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-5 h-5" />
+                            )}
                           </button>
                           <button
                             disabled={
-                              updatingId === applicant.id ||
+                              !!updatingAction ||
                               applicant.status === "Rejected"
                             }
                             onClick={(e) => {
@@ -441,7 +455,11 @@ export default function JobCandidatesPage() {
                             }`}
                             title="Reject"
                           >
-                            <XCircle className="w-5 h-5" />
+                            {updatingAction?.id === applicant.id && updatingAction.status === "rejected" ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <XCircle className="w-5 h-5" />
+                            )}
                           </button>
                         </div>
                       </td>
