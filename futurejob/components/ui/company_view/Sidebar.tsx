@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Briefcase, Calendar, MessageSquare, X, Zap, LogOut, User as UserIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase/client";
+import { getCompanyProfile } from "@/lib/services/companyProfile";
 
 const navItems = [
   { name: "Dashboard", href: "/company/dashboard", icon: LayoutDashboard },
@@ -18,11 +19,25 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen?: boolean; setIs
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [profileName, setProfileName] = useState<string>("Company User");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        try {
+          const profile = await getCompanyProfile(currentUser.uid);
+          if (profile?.name) {
+            setProfileName(profile.name);
+          } else {
+            setProfileName("Company User");
+          }
+        } catch (error) {
+          console.error("Error fetching company profile:", error);
+          setProfileName("Company User");
+        }
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -122,7 +137,7 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen?: boolean; setIs
             <div className={`flex items-center justify-between flex-1 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'md:opacity-0 group-hover:opacity-100'}`}>
               <div className="flex flex-col items-start text-left truncate overflow-hidden pr-2">
                 <span className="text-sm font-semibold truncate w-full">
-                  {user?.displayName || "Company User"}
+                  {profileName}
                 </span>
                 <span className="text-xs text-slate-500 truncate w-full">
                   {user?.email || "company@email.com"}

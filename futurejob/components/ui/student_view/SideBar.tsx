@@ -21,6 +21,7 @@ import {
 // 3. Changed import path to standard 'firebase/auth' and added onAuthStateChanged
 import { signOut, onAuthStateChanged, User } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase/client";
+import { getCandidateProfile } from "@/lib/services/candidateProfiles";
 
 const navItems = [
   { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
@@ -42,12 +43,28 @@ export default function Sidebar({
 
   // 4. Moved State and Refs INSIDE the component body
   const [user, setUser] = useState<User | null>(null);
+  const [profileName, setProfileName] = useState<string>("Student User");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // 5. Added an Auth Listener so the sidebar actually knows who is logged in
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        try {
+          const profile = await getCandidateProfile(currentUser.uid);
+          if (profile?.fullName) {
+            setProfileName(profile.fullName);
+          } else if (profile?.name) {
+            setProfileName(profile.name);
+          } else {
+            setProfileName("Student User");
+          }
+        } catch (error) {
+          console.error("Error fetching candidate profile:", error);
+          setProfileName("Student User");
+        }
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -164,7 +181,7 @@ export default function Sidebar({
               <div className="flex flex-col items-start text-left truncate overflow-hidden pr-2">
                 {/* Updated default text to Student */}
                 <span className="text-sm font-semibold truncate w-full">
-                  {user?.displayName || "Student User"}
+                  {profileName}
                 </span>
                 <span className="text-xs text-slate-500 truncate w-full">
                   {user?.email || "student@email.com"}
