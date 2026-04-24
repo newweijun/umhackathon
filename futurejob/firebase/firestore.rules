@@ -52,7 +52,7 @@ service cloud.firestore {
     // Keep user docs keyed by uid.
     // Example: users/{uid}
     match /users/{uid} {
-      allow read: if isSelf(uid) || isAdmin();
+      allow read: if isSelf(uid) || isAdmin() || isCompany();
 
       // First-time profile bootstrap by owner, then only owner/admin update.
       allow create: if isSelf(uid)

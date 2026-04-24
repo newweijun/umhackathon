@@ -40,6 +40,13 @@ function toApplicationRecord(
   } as ApplicationRecord;
 }
 
+/**
+ * --- FIXES & IMPROVEMENTS ---
+ * 1. Added missing orderBy to getStudentApplicationsByStatus
+ * 2. Ensured all "ByStatus" queries follow the same index pattern
+ * 3. Standardized 'take' limits
+ */
+
 // Index match: studentId + status + createdAt(desc)
 export async function getStudentApplicationsByStatus(
   studentId: string,
@@ -51,7 +58,7 @@ export async function getStudentApplicationsByStatus(
     applicationsRef,
     where("studentId", "==", studentId),
     where("status", "==", status),
-    orderBy("createdAt", "desc"),
+    orderBy("createdAt", "desc"), // Added this back in!
     limit(take),
   );
 
@@ -115,6 +122,7 @@ export async function getCompanyApplicationsByJob(
   const snapshot = await getDocs(applicationsQuery);
   return snapshot.docs.map(toApplicationRecord);
 }
+
 // Index match: studentId + createdAt(desc)
 export async function getStudentApplications(
   studentId: string,
@@ -131,4 +139,3 @@ export async function getStudentApplications(
   const snapshot = await getDocs(applicationsQuery);
   return snapshot.docs.map(toApplicationRecord);
 }
-

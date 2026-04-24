@@ -56,7 +56,17 @@ export default function StudentDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  useEffect(() => {
+    const user = firebaseAuth.currentUser;
+    if (!user) return;
 
+    user.getIdTokenResult(true).then((result) => {
+      // true = force refresh
+      console.log("UID:", user.uid);
+      console.log("Email:", user.email);
+      console.log("Claims:", JSON.stringify(result.claims));
+    });
+  }, []);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
       if (!user) {
@@ -79,18 +89,18 @@ export default function StudentDashboard() {
         }
 
         // 2. Fetch Job details and Ratings in parallel
-        const jobIds = Array.from(new Set(studentApps.map(app => app.jobId)));
+        const jobIds = Array.from(new Set(studentApps.map((app) => app.jobId)));
         const [jobMap, ratings] = await Promise.all([
           getJobDetailsByIds(jobIds),
-          getStudentRatingResults(user.uid)
+          getStudentRatingResults(user.uid),
         ]);
 
         // 3. Fetch Company profiles
-        const companyIds = Array.from(jobMap.values()).map(j => j.companyId);
+        const companyIds = Array.from(jobMap.values()).map((j) => j.companyId);
         const companyMap = await getCompanyProfilesByIds(companyIds);
 
         // 4. Create Rating Lookup
-        const ratingLookup = new Map(ratings.map(r => [r.jobId, r]));
+        const ratingLookup = new Map(ratings.map((r) => [r.jobId, r]));
 
         const mapped: DashboardApplication[] = studentApps.map((app) => {
           const job = jobMap.get(app.jobId);
@@ -98,28 +108,37 @@ export default function StudentDashboard() {
           const company = job ? companyMap.get(job.companyId) : null;
 
           const role = toText(app.role) || toText(job?.title) || "Unknown Role";
-          const companyName = toText(app.companyName) || toText(company?.name) || "Unknown Company";
+          const companyName =
+            toText(app.companyName) ||
+            toText(company?.name) ||
+            "Unknown Company";
 
           // Construct JobMatch object for the slide-out
           let jobDetails: JobMatch | undefined;
           if (job) {
             const salaryStr = String(job.salaryRange || "");
             const baseSalary = parseInt(salaryStr.replace(/[^0-9]/g, "")) || 0;
-            
+
             jobDetails = {
               id: job.id,
               company: companyName,
               companyId: job.companyId,
               role: role,
-              location: job.locationDetails || (job.locationType === "Remote" ? "Remote" : "Location Pending"),
+              location:
+                job.locationDetails ||
+                (job.locationType === "Remote" ? "Remote" : "Location Pending"),
               salary: job.salaryRange ? `RM ${job.salaryRange}` : "Competitive",
               baseSalary: baseSalary,
-              datePosted: (job.createdAt as any)?.seconds ? (job.createdAt as any).seconds * 1000 : Date.now(),
+              datePosted: (job.createdAt as any)?.seconds
+                ? (job.createdAt as any).seconds * 1000
+                : Date.now(),
               matchScore: rating?.score || 100,
-              aiReasoning: rating?.reasoning || rating?.reason || "Application submitted.",
+              aiReasoning:
+                rating?.reasoning || rating?.reason || "Application submitted.",
               matchedSkills: (rating?.matchedSkills as string[]) || [],
               missingSkills: (rating?.missingSkills as string[]) || [],
-              description: job.aboutJob || job.expectations || "No description provided."
+              description:
+                job.aboutJob || job.expectations || "No description provided.",
             };
           }
 
@@ -128,14 +147,17 @@ export default function StudentDashboard() {
             companyName,
             role,
             status: normalizeStatus(app.status),
-            jobDetails
+            jobDetails,
           };
         });
 
         setApplications(mapped);
       } catch (fetchError) {
         console.error("Dashboard error:", fetchError);
-        const message = fetchError instanceof Error ? fetchError.message : "Failed to load your applications.";
+        const message =
+          fetchError instanceof Error
+            ? fetchError.message
+            : "Failed to load your applications.";
         setError(message);
       } finally {
         setLoading(false);
@@ -148,9 +170,10 @@ export default function StudentDashboard() {
   const filteredApplications = useMemo(() => {
     if (!searchQuery) return applications;
     const lower = searchQuery.toLowerCase();
-    return applications.filter(app => 
-      app.role.toLowerCase().includes(lower) || 
-      app.companyName.toLowerCase().includes(lower)
+    return applications.filter(
+      (app) =>
+        app.role.toLowerCase().includes(lower) ||
+        app.companyName.toLowerCase().includes(lower),
     );
   }, [applications, searchQuery]);
 
@@ -207,7 +230,9 @@ export default function StudentDashboard() {
                     >
                       <div className="flex flex-col items-center gap-3">
                         <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
-                        <span className="animate-pulse">Loading your applications...</span>
+                        <span className="animate-pulse">
+                          Loading your applications...
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -226,14 +251,18 @@ export default function StudentDashboard() {
                       colSpan={3}
                       className="px-8 py-16 text-center text-slate-500"
                     >
-                      {searchQuery ? "No matching applications found." : "You haven't applied to any jobs yet."}
+                      {searchQuery
+                        ? "No matching applications found."
+                        : "You haven't applied to any jobs yet."}
                     </td>
                   </tr>
                 ) : (
                   filteredApplications.map((app) => (
                     <tr
                       key={app.id}
-                      onClick={() => app.jobDetails && setSelectedJob(app.jobDetails)}
+                      onClick={() =>
+                        app.jobDetails && setSelectedJob(app.jobDetails)
+                      }
                       className="hover:bg-indigo-50/30 transition-colors duration-150 cursor-pointer group"
                     >
                       <td className="px-8 py-5">

@@ -8,56 +8,54 @@ interface ChatSidebarProps {
   candidates: Map<string, CandidateProfileRecord>;
   selectedId: string | null;
   onSelect: (app: ApplicationRecord) => void;
+  type?: string;
 }
 
-export default function ChatSidebar({ applications, candidates, selectedId, onSelect }: ChatSidebarProps) {
+export default function ChatSidebar({
+  applications,
+  candidates,
+  selectedId,
+  onSelect,
+  type = "company", // Add this prop
+}: ChatSidebarProps) {
   return (
-    <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50/50 shrink-0 flex flex-col">
-      <div className="p-4 border-b border-slate-200 bg-white/50">
-        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Conversations</div>
+    <div className="w-full md:w-80 border-r border-slate-200 flex flex-col bg-slate-50/50">
+      <div className="p-4 border-b border-slate-200 bg-white">
+        <h2 className="font-semibold text-slate-900">Conversations</h2>
       </div>
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      <div className="flex-1 overflow-y-auto">
         {applications.length === 0 ? (
-          <div className="p-4 text-center text-sm text-slate-500 italic">
-            No approved candidates yet.
+          <div className="p-8 text-center text-sm text-slate-500 italic">
+            No conversations yet.
           </div>
         ) : (
           applications.map((app) => {
-            const candidate = candidates.get(app.studentId);
+            // FIX: If student view, use companyId. If company view, use studentId.
+            const participantId =
+              type === "student" ? app.companyId : app.studentId;
+            const participant = candidates.get(participantId);
+
             const isSelected = selectedId === app.id;
-            const initials = (candidate?.fullName || candidate?.name || "??")
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()
-              .slice(0, 2);
 
             return (
               <button
                 key={app.id}
                 onClick={() => onSelect(app)}
-                className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 border ${
-                  isSelected 
-                    ? "bg-white border-indigo-100 shadow-sm ring-1 ring-indigo-50" 
-                    : "border-transparent hover:bg-white/60 hover:border-slate-200"
+                className={`w-full p-4 flex items-center gap-3 transition-colors border-b border-slate-100 ${
+                  isSelected
+                    ? "bg-white shadow-sm ring-1 ring-inset ring-slate-200"
+                    : "hover:bg-slate-100"
                 }`}
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-                  isSelected ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"
-                }`}>
-                  {initials}
+                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold shrink-0">
+                  {participant?.name?.charAt(0) || "?"}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className={`font-semibold text-sm truncate ${isSelected ? "text-indigo-900" : "text-slate-900"}`}>
-                    {candidate?.fullName || candidate?.name || "Unknown Candidate"}
-                  </div>
-                  <div className="text-xs text-slate-500 truncate">
-                    Job ID: {app.jobId.slice(-6)}
-                  </div>
+                <div className="text-left min-w-0">
+                  <p className="font-semibold text-slate-900 truncate">
+                    {participant?.name || "Loading..."}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">{String(app.role)}</p>
                 </div>
-                {isSelected && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
-                )}
               </button>
             );
           })

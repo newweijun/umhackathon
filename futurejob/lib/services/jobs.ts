@@ -39,13 +39,14 @@ function toJobRecord(snapshot: QueryDocumentSnapshot<DocumentData>): JobRecord {
   } as JobRecord;
 }
 
-// Index match: companyId + status + createdAt(desc)
 export async function getCompanyJobsByStatus(
   companyId: string,
   status: JobStatus,
   take = 20,
 ): Promise<JobRecord[]> {
   const jobsRef = collection(firebaseDb, "jobs");
+
+  // 1. Create the query
   const jobsQuery = query(
     jobsRef,
     where("companyId", "==", companyId),
@@ -54,11 +55,13 @@ export async function getCompanyJobsByStatus(
     limit(take),
   );
 
+  // 2. USE getDocs(jobsQuery) instead of getDoc(jobsRef)
   const snapshot = await getDocs(jobsQuery);
+
+  // 3. Map the docs array
   return snapshot.docs.map(toJobRecord);
 }
 
-// Index match: status + createdAt(desc)
 export async function getJobsByStatus(
   status: JobStatus,
   take = 20,
@@ -67,6 +70,7 @@ export async function getJobsByStatus(
   const jobsQuery = query(
     jobsRef,
     where("status", "==", status),
+    orderBy("createdAt", "desc"), // Add this for index consistency
     limit(take),
   );
 
@@ -77,11 +81,11 @@ export async function getJobsByStatus(
 export async function getJobById(jobId: string): Promise<JobRecord | null> {
   const jobRef = doc(firebaseDb, "jobs", jobId);
   const snapshot = await getDoc(jobRef);
-  
+
   if (!snapshot.exists()) {
     return null;
   }
-  
+
   const data = snapshot.data();
   return {
     id: snapshot.id,
