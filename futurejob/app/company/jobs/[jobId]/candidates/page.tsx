@@ -511,15 +511,19 @@ export default function JobCandidatesPage() {
                 {selectedApplicant.reason}
               </div>
 
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mt-8 mb-3">
-                Next Steps
-              </h3>
-              <button
-                onClick={() => setIsInterviewModalOpen(true)}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm shadow-indigo-200 transition-colors cursor-pointer flex justify-center items-center gap-2"
-              >
-                Schedule Interview <ChevronRight className="w-4 h-4" />
-              </button>
+              {selectedApplicant.status === "Approved" && (
+                <>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mt-8 mb-3">
+                    Next Steps
+                  </h3>
+                  <button
+                    onClick={() => setIsInterviewModalOpen(true)}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm shadow-indigo-200 transition-colors cursor-pointer flex justify-center items-center gap-2"
+                  >
+                    Schedule Interview <ChevronRight className="w-4 h-4" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>

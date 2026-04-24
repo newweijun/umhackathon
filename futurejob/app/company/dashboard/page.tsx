@@ -228,8 +228,8 @@ export default function CompanyDashboard() {
               <tr>
                 <th className="px-6 py-4 font-semibold text-slate-700">Job Title</th>
                 <th className="px-6 py-4 font-semibold text-slate-700">Status</th>
-                <th className="px-6 py-4 font-semibold text-slate-700">Total Apps</th>
-                <th className="px-6 py-4 font-semibold text-slate-700">New Apps</th>
+                <th className="px-6 py-4 font-semibold text-slate-700">Total Applications</th>
+                <th className="px-6 py-4 font-semibold text-slate-700">New Applications</th>
                 <th className="px-6 py-4 font-semibold text-slate-700 text-right">Action</th>
               </tr>
             </thead>
