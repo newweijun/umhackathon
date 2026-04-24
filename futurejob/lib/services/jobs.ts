@@ -67,7 +67,6 @@ export async function getJobsByStatus(
   const jobsQuery = query(
     jobsRef,
     where("status", "==", status),
-    orderBy("createdAt", "desc"),
     limit(take),
   );
 

@@ -167,7 +167,7 @@ export async function applyForJob(input: {
     role: input.role,
     companyName: input.companyName,
     match: input.matchScore,
-    status: "applied",
+    status: "submitted",
     feedback:
       "Your application has been received and is waiting for employer review.",
   });

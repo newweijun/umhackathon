@@ -1,60 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { Search, Filter, Building2, Briefcase } from "lucide-react";
+import { Search, Filter, Building2, Briefcase, Loader2 } from "lucide-react";
 import {
   getStudentApplications,
-  type ApplicationRecord,
+  getJobDetailsByIds,
+  getStudentRatingResults,
+  getCompanyProfilesByIds,
   type ApplicationStatus,
 } from "@/lib/services";
 import { firebaseAuth } from "@/lib/firebase/client";
 import { SearchBar } from "@/components/ui/company_view/SearchBar";
+import { JobMatch } from "@/lib/types/jobs";
+import JobMatchDetails from "@/components/ui/student_view/matches/JobMatchDetail";
 
 type DashboardApplication = {
   id: string;
   companyName: string;
   role: string;
   status: "Applied" | "Under Review" | "Interviewing" | "Offered" | "Rejected";
+  jobDetails?: JobMatch;
 };
-//THIS IS MOCK DATA ONLY - REPLACE WITH REAL API CALLS
-export const mockStudentApplications = [
-  {
-    id: "app_001",
-    role: "Frontend Engineer Intern",
-    companyName: "Google",
-    status: "interviewing", // Will map to "Interviewing" (Purple)
-    createdAt: new Date("2026-04-10").getTime(),
-  },
-  {
-    id: "app_002",
-    role: "Fullstack Developer",
-    companyName: "Stripe",
-    status: "under_review", // Will map to "Under Review" (Blue)
-    createdAt: new Date("2026-04-15").getTime(),
-  },
-  {
-    id: "app_003",
-    role: "UI/UX Designer",
-    companyName: "Spotify",
-    status: "rejected", // Will map to "Rejected" (Red)
-    createdAt: new Date("2026-04-01").getTime(),
-  },
-  {
-    id: "app_004",
-    role: "Software Engineer, New Grad",
-    companyName: "Microsoft",
-    status: "offered", // Will map to "Offered" (Green)
-    createdAt: new Date("2026-03-20").getTime(),
-  },
-  {
-    id: "app_005",
-    role: "Data Analyst Intern",
-    companyName: "Airbnb",
-    status: "applied", // Will map to "Applied" (Gray)
-    createdAt: new Date("2026-04-18").getTime(),
-  },
-];
+
 // Map backend statuses to the Student UI statuses
 function normalizeStatus(
   status: ApplicationStatus | string,
@@ -86,6 +54,8 @@ export default function StudentDashboard() {
   const [applications, setApplications] = useState<DashboardApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
@@ -100,34 +70,73 @@ export default function StudentDashboard() {
       setError(null);
 
       try {
-        // Fetch all applications belonging to this student
+        // 1. Fetch all applications
         const studentApps = await getStudentApplications(user.uid);
+        if (studentApps.length === 0) {
+          setApplications([]);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fetch Job details and Ratings in parallel
+        const jobIds = Array.from(new Set(studentApps.map(app => app.jobId)));
+        const [jobMap, ratings] = await Promise.all([
+          getJobDetailsByIds(jobIds),
+          getStudentRatingResults(user.uid)
+        ]);
+
+        // 3. Fetch Company profiles
+        const companyIds = Array.from(jobMap.values()).map(j => j.companyId);
+        const companyMap = await getCompanyProfilesByIds(companyIds);
+
+        // 4. Create Rating Lookup
+        const ratingLookup = new Map(ratings.map(r => [r.jobId, r]));
 
         const mapped: DashboardApplication[] = studentApps.map((app) => {
-          const role =
-            toText(app.jobTitle) || toText(app.role) || "Unknown Role";
-          const companyName = toText(app.companyName) || "Unknown Company";
+          const job = jobMap.get(app.jobId);
+          const rating = ratingLookup.get(app.jobId);
+          const company = job ? companyMap.get(job.companyId) : null;
+
+          const role = toText(app.role) || toText(job?.title) || "Unknown Role";
+          const companyName = toText(app.companyName) || toText(company?.name) || "Unknown Company";
+
+          // Construct JobMatch object for the slide-out
+          let jobDetails: JobMatch | undefined;
+          if (job) {
+            const salaryStr = String(job.salaryRange || "");
+            const baseSalary = parseInt(salaryStr.replace(/[^0-9]/g, "")) || 0;
+            
+            jobDetails = {
+              id: job.id,
+              company: companyName,
+              companyId: job.companyId,
+              role: role,
+              location: job.locationDetails || (job.locationType === "Remote" ? "Remote" : "Location Pending"),
+              salary: job.salaryRange ? `RM ${job.salaryRange}` : "Competitive",
+              baseSalary: baseSalary,
+              datePosted: (job.createdAt as any)?.seconds ? (job.createdAt as any).seconds * 1000 : Date.now(),
+              matchScore: rating?.score || 100,
+              aiReasoning: rating?.reasoning || rating?.reason || "Application submitted.",
+              matchedSkills: (rating?.matchedSkills as string[]) || [],
+              missingSkills: (rating?.missingSkills as string[]) || [],
+              description: job.aboutJob || job.expectations || "No description provided."
+            };
+          }
 
           return {
             id: app.id,
             companyName,
             role,
             status: normalizeStatus(app.status),
+            jobDetails
           };
         });
 
-        // Deduplicate just in case
-        const deduplicated = Array.from(
-          new Map(mapped.map((item) => [item.id, item])).values(),
-        );
-        setApplications(deduplicated);
+        setApplications(mapped);
       } catch (fetchError) {
-        const message =
-          fetchError instanceof Error
-            ? fetchError.message
-            : "Failed to load your applications.";
+        console.error("Dashboard error:", fetchError);
+        const message = fetchError instanceof Error ? fetchError.message : "Failed to load your applications.";
         setError(message);
-        setApplications([]);
       } finally {
         setLoading(false);
       }
@@ -136,8 +145,17 @@ export default function StudentDashboard() {
     return unsubscribe;
   }, []);
 
+  const filteredApplications = useMemo(() => {
+    if (!searchQuery) return applications;
+    const lower = searchQuery.toLowerCase();
+    return applications.filter(app => 
+      app.role.toLowerCase().includes(lower) || 
+      app.companyName.toLowerCase().includes(lower)
+    );
+  }, [applications, searchQuery]);
+
   return (
-    <div className="flex flex-col h-auto md:h-[calc(100vh-6rem)] gap-6 relative">
+    <div className="flex flex-col h-auto md:h-[calc(100vh-6rem)] gap-6 relative animate-in fade-in duration-300">
       {/* Main Table Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -154,6 +172,8 @@ export default function StudentDashboard() {
               wrapperClassName="flex-1 md:flex-none"
               className="w-full md:w-64"
               placeholder="Search jobs or companies..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors duration-200">
               <Filter className="w-4 h-4" />
@@ -185,8 +205,9 @@ export default function StudentDashboard() {
                       colSpan={3}
                       className="px-8 py-16 text-center text-slate-500"
                     >
-                      <div className="animate-pulse">
-                        Loading your applications...
+                      <div className="flex flex-col items-center gap-3">
+                        <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                        <span className="animate-pulse">Loading your applications...</span>
                       </div>
                     </td>
                   </tr>
@@ -199,23 +220,24 @@ export default function StudentDashboard() {
                       {error}
                     </td>
                   </tr>
-                ) : applications.length === 0 ? (
+                ) : filteredApplications.length === 0 ? (
                   <tr>
                     <td
                       colSpan={3}
                       className="px-8 py-16 text-center text-slate-500"
                     >
-                      You havent applied to any jobs yet.
+                      {searchQuery ? "No matching applications found." : "You haven't applied to any jobs yet."}
                     </td>
                   </tr>
                 ) : (
-                  applications.map((app) => (
+                  filteredApplications.map((app) => (
                     <tr
                       key={app.id}
-                      className="hover:bg-slate-50 transition-colors duration-150"
+                      onClick={() => app.jobDetails && setSelectedJob(app.jobDetails)}
+                      className="hover:bg-indigo-50/30 transition-colors duration-150 cursor-pointer group"
                     >
                       <td className="px-8 py-5">
-                        <div className="font-semibold text-slate-900 flex items-center gap-2">
+                        <div className="font-semibold text-slate-900 flex items-center gap-2 group-hover:text-indigo-600 transition-colors">
                           <Briefcase className="w-4 h-4 text-indigo-500" />
                           {app.role}
                         </div>
@@ -264,6 +286,15 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Details Overlay */}
+      {selectedJob && (
+        <JobMatchDetails
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+          hideApply={true}
+        />
+      )}
     </div>
   );
 }

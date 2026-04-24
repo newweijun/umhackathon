@@ -50,7 +50,9 @@ export default async function AdminUsersPage() {
                         user.role === "admin"
                           ? "bg-rose-50 text-rose-700"
                           : user.role === "company"
-                            ? "bg-amber-50 text-amber-700"
+                            ? user.isVerified
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                              : "bg-amber-50 text-amber-700 border border-amber-100"
                             : "bg-sky-50 text-sky-700"
                       }
                     >

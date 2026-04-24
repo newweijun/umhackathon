@@ -1,76 +1,92 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-// Adjust these imports based on where you place the files
+import React, { useState, useMemo, useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { firebaseAuth } from "@/lib/firebase/client";
+import { 
+  getJobsByStatus, 
+  getCompanyProfilesByIds 
+} from "@/lib/services";
 import { JobMatch, SortOption } from "@/lib/types/jobs";
 import JobMatchHeader from "@/components/ui/student_view/matches/JobMatchHeader";
 import JobMatchCard from "@/components/ui/student_view/matches/JobMatchCard";
 import JobMatchDetails from "@/components/ui/student_view/matches/JobMatchDetail";
 
-const MOCK_MATCHES: JobMatch[] = [
-  {
-    id: "job_001",
-    company: "Stripe",
-    role: "Frontend Engineer Intern",
-    location: "Remote",
-    salary: "$4,000 - $5,000 / mo",
-    baseSalary: 4000,
-    datePosted: new Date("2026-04-18").getTime(),
-    matchScore: 92,
-    aiReasoning:
-      "Exceptional alignment. Your recent eMoney portal project heavily utilizes Next.js and Tailwind, which are the core requirements for this team.",
-    matchedSkills: ["React", "Next.js", "Tailwind CSS", "TypeScript"],
-    missingSkills: ["GraphQL"],
-    description:
-      "We are looking for a passionate Frontend Intern to help build the next generation of Stripe's merchant dashboard. You will work closely with our design and engineering teams to implement pixel-perfect, accessible UI components.",
-  },
-  {
-    id: "job_002",
-    company: "Google",
-    role: "Fullstack Developer, New Grad",
-    location: "Kuala Lumpur, MY",
-    salary: "RM 6,000 - RM 8,000 / mo",
-    baseSalary: 1200,
-    datePosted: new Date("2026-04-20").getTime(),
-    matchScore: 78,
-    aiReasoning:
-      "Strong foundation in backend APIs and React. However, you lack explicit mention of cloud deployment experience (GCP/AWS).",
-    matchedSkills: ["React", "Node.js", "PostgreSQL"],
-    missingSkills: ["Docker", "Google Cloud"],
-    description:
-      "Join Google Cloud's enterprise solutions team. You will be responsible for building scalable full-stack applications that help our largest customers manage their infrastructure.",
-  },
-  {
-    id: "job_003",
-    company: "Airbnb",
-    role: "UI/UX Design Intern",
-    location: "Remote",
-    salary: "$3,500 / mo",
-    baseSalary: 3500,
-    datePosted: new Date("2026-04-10").getTime(),
-    matchScore: 45,
-    aiReasoning:
-      "Low match. While you have frontend development skills, this role requires a dedicated portfolio of Figma prototypes and formal user research methodologies.",
-    matchedSkills: ["CSS", "Frontend Design"],
-    missingSkills: ["Figma", "User Research", "Wireframing"],
-    description:
-      "Help design the future of travel. As a UI/UX intern, you will conduct user interviews, build low-fidelity wireframes, and create high-fidelity prototypes in Figma.",
-  },
-];
 export default function StudentJobMatches() {
+  const [matches, setMatches] = useState<JobMatch[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>("match");
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
+      if (!user) {
+        setMatches([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        // 1. Fetch all jobs with 'open' status
+        const openJobs = await getJobsByStatus("open", 100);
+        
+        if (openJobs.length === 0) {
+          setMatches([]);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fetch company profiles for these jobs
+        const companyIds = Array.from(new Set(openJobs.map(j => j.companyId)));
+        const companyMap = await getCompanyProfilesByIds(companyIds);
+
+        // 3. Map to JobMatch interface
+        const mappedMatches: JobMatch[] = openJobs.map(job => {
+          const company = companyMap.get(job.companyId);
+          
+          // Parse salary for sorting
+          const salaryStr = String(job.salaryRange || "");
+          const baseSalary = parseInt(salaryStr.replace(/[^0-9]/g, "")) || 0;
+
+          return {
+            id: job.id,
+            company: company?.name || "Unknown Company",
+            companyId: job.companyId,
+            role: job.title || "Unknown Role",
+            location: job.locationDetails || (job.locationType === "Remote" ? "Remote" : "Location Pending"),
+            salary: job.salaryRange ? `RM ${job.salaryRange}` : "Competitive",
+            baseSalary: baseSalary,
+            datePosted: (job.createdAt as any)?.seconds ? (job.createdAt as any).seconds * 1000 : Date.now(),
+            matchScore: 100, // Placeholder score since AI matching is skipped
+            aiReasoning: "This job is currently open and accepting applications. Complete your profile to get a personalized AI match score!",
+            matchedSkills: [],
+            missingSkills: [],
+            description: job.aboutJob || job.expectations || "No description provided."
+          };
+        });
+
+        setMatches(mappedMatches);
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Handle the sorting logic
   const sortedMatches = useMemo(() => {
-    const matchesCopy = [...MOCK_MATCHES];
+    const matchesCopy = [...matches];
     return matchesCopy.sort((a, b) => {
       if (sortBy === "match") return b.matchScore - a.matchScore;
       if (sortBy === "newest") return b.datePosted - a.datePosted;
       if (sortBy === "salary") return b.baseSalary - a.baseSalary;
       return 0;
     });
-  }, [sortBy]);
+  }, [matches, sortBy]);
 
   // Handle the final application action
   const handleApply = () => {
@@ -80,6 +96,14 @@ export default function StudentJobMatches() {
     setSelectedJob(null);
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-auto md:h-[calc(100vh-6rem)] gap-6 relative animate-in fade-in duration-300">
       <div className="flex-1 flex flex-col min-w-0">
@@ -87,15 +111,22 @@ export default function StudentJobMatches() {
         <JobMatchHeader sortBy={sortBy} onSortChange={setSortBy} />
 
         {/* 2. The Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8 overflow-y-auto pr-2">
-          {sortedMatches.map((job) => (
-            <JobMatchCard
-              key={job.id}
-              job={job}
-              onClick={() => setSelectedJob(job)}
-            />
-          ))}
-        </div>
+        {sortedMatches.length === 0 ? (
+          <div className="flex flex-col items-center justify-center flex-1 text-slate-500">
+            <p className="text-xl font-medium">No job matches found yet.</p>
+            <p className="mt-2">Try updating your profile or checking back later.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8 overflow-y-auto pr-2">
+            {sortedMatches.map((job) => (
+              <JobMatchCard
+                key={job.id}
+                job={job}
+                onClick={() => setSelectedJob(job)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 3. The Details Overlay (Only shows if a job is selected) */}

@@ -47,6 +47,11 @@ export default function PostJob() {
         throw new Error("Please sign in as company user first.");
       }
 
+      // 1. Check if company is verified
+      const { getCompanyProfile } = await import("@/lib/services");
+      const profile = await getCompanyProfile(user.uid);
+      const isVerified = profile?.isVerified === true;
+
       await createJob({
         companyId: user.uid,
         title,
@@ -58,12 +63,11 @@ export default function PostJob() {
         preferredQualification,
         aboutJob,
         keyResponsibilities,
-        // Optional: combine text fields for legacy `expectations` compatibility
         expectations: `About: ${aboutJob}\n\nKey Responsibilities: ${keyResponsibilities}\n\nMinimum Qualifications: ${minQualification}\n\nPreferred Qualifications: ${preferredQualification}`,
-        status: "draft",
+        status: isVerified ? "open" : "draft",
       });
 
-      setStatusMessage("Job saved to Firestore as draft.");
+      setStatusMessage(isVerified ? "Job posted successfully!" : "Job saved to Firestore as draft (Awaiting company verification).");
       
       // Reset form
       setTitle("");
