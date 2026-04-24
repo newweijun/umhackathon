@@ -3,6 +3,7 @@
 import {
   doc,
   getDoc,
+  setDoc,
   type DocumentData,
   type DocumentSnapshot,
 } from "firebase/firestore";
@@ -12,6 +13,9 @@ export interface CandidateProfileRecord {
   id: string;
   fullName?: string;
   name?: string;
+  email?: string;
+  phone?: string;
+  experience?: string;
   skills?: string[] | string;
   [key: string]: unknown;
 }
@@ -28,6 +32,20 @@ function toCandidateProfileRecord(
     id: snapshot.id,
     ...data,
   } as CandidateProfileRecord;
+}
+
+export async function getCandidateProfile(
+  uid: string
+): Promise<CandidateProfileRecord | null> {
+  const snapshot = await getDoc(doc(firebaseDb, "candidateProfiles", uid));
+  return toCandidateProfileRecord(snapshot);
+}
+
+export async function updateCandidateProfile(
+  uid: string,
+  data: Partial<Omit<CandidateProfileRecord, "id">>
+): Promise<void> {
+  await setDoc(doc(firebaseDb, "candidateProfiles", uid), data, { merge: true });
 }
 
 export async function getCandidateProfilesByIds(
