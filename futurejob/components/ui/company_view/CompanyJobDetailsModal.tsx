@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { 
   X, 
   MapPin, 
@@ -11,16 +11,22 @@ import {
   Building2, 
   CheckCircle2,
   Calendar,
-  Users
+  Users,
+  Loader2,
+  Lock,
+  Unlock
 } from "lucide-react";
-import { JobRecord } from "@/lib/services/jobs";
+import { JobRecord, updateJobStatus } from "@/lib/services";
 
 interface CompanyJobDetailsModalProps {
   job: JobRecord;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function CompanyJobDetailsModal({ job, onClose }: CompanyJobDetailsModalProps) {
+export default function CompanyJobDetailsModal({ job, onClose, onSuccess }: CompanyJobDetailsModalProps) {
+  const [isUpdating, setIsUpdating] = useState(false);
+
   // Helper to format timestamps if they are Firestore timestamps
   const formatDate = (ts: any) => {
     if (!ts) return "N/A";
@@ -30,6 +36,26 @@ export default function CompanyJobDetailsModal({ job, onClose }: CompanyJobDetai
       month: 'short', 
       year: 'numeric' 
     });
+  };
+
+  const handleStatusToggle = async () => {
+    const nextStatus = job.status === "open" ? "closed" : "open";
+    const confirmMsg = nextStatus === "closed" 
+      ? "Are you sure you want to close this job? It will no longer be visible to students." 
+      : "Are you sure you want to open this job? It will become visible to students.";
+    
+    if (!confirm(confirmMsg)) return;
+
+    setIsUpdating(true);
+    try {
+      await updateJobStatus(job.id, nextStatus);
+      if (onSuccess) onSuccess();
+    } catch (error) {
+      console.error("Error updating job status:", error);
+      alert("Failed to update job status.");
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
@@ -147,10 +173,22 @@ export default function CompanyJobDetailsModal({ job, onClose }: CompanyJobDetai
             View All Candidates
           </button>
           <button 
-            onClick={onClose}
-            className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all"
+            onClick={handleStatusToggle}
+            disabled={isUpdating}
+            className={`px-6 py-3 border font-bold rounded-xl transition-all flex items-center gap-2 ${
+              job.status === "open"
+                ? "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
+                : "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100"
+            } disabled:opacity-50 cursor-pointer`}
           >
-            Close
+            {isUpdating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : job.status === "open" ? (
+              <Lock className="w-4 h-4" />
+            ) : (
+              <Unlock className="w-4 h-4" />
+            )}
+            {job.status === "open" ? "Close Job" : "Open Job"}
           </button>
         </div>
       </div>

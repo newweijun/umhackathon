@@ -44,6 +44,74 @@ export default function CompanyDashboard() {
     upcomingInterviews: 0,
   });
 
+  const fetchDashboardData = async (uid: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Fetch all jobs for company
+      const jobsResults = await Promise.all(
+        COMPANY_DASHBOARD_JOB_STATUSES.map((status) =>
+          getCompanyJobsByStatus(uid, status, 50)
+        )
+      );
+      const allJobs = jobsResults.flat();
+
+      // Fetch all applications for company to compute stats
+      const appsResults = await Promise.all(
+        COMPANY_DASHBOARD_APP_STATUSES.map((status) =>
+          getCompanyApplicationsByStatus(uid, status, 500)
+        )
+      );
+      const allApplications = appsResults.flat();
+
+      // Calculate global metrics
+      const activeJobsCount = allJobs.filter(j => j.status === "open").length;
+      const totalApplicantsCount = allApplications.length;
+      const newApplicantsCount = allApplications.filter(a => a.status === "submitted").length;
+
+      setMetrics({
+        activeJobs: activeJobsCount,
+        totalApplicants: totalApplicantsCount,
+        newApplicants: newApplicantsCount,
+        upcomingInterviews: 0, // Placeholder
+      });
+
+      // Calculate per-job stats
+      const appsByJob = allApplications.reduce((acc, app) => {
+        if (!acc[app.jobId]) {
+          acc[app.jobId] = { total: 0, new: 0 };
+        }
+        acc[app.jobId].total += 1;
+        if (app.status === "submitted") {
+          acc[app.jobId].new += 1;
+        }
+        return acc;
+      }, {} as Record<string, { total: number; new: number }>);
+
+      const jobsWithStats: JobWithStats[] = allJobs.map(job => ({
+        ...job,
+        totalApplicants: appsByJob[job.id]?.total || 0,
+        newApplicants: appsByJob[job.id]?.new || 0,
+      }));
+
+      // Sort: Active first
+      jobsWithStats.sort((a, b) => {
+        if (a.status === "open" && b.status !== "open") return -1;
+        if (a.status !== "open" && b.status === "open") return 1;
+        return 0;
+      });
+
+      setJobs(jobsWithStats);
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Failed to load dashboard data.";
+      setError(message);
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
       if (!user) {
@@ -53,72 +121,7 @@ export default function CompanyDashboard() {
         return;
       }
 
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Fetch all jobs for company
-        const jobsResults = await Promise.all(
-          COMPANY_DASHBOARD_JOB_STATUSES.map((status) =>
-            getCompanyJobsByStatus(user.uid, status, 50)
-          )
-        );
-        const allJobs = jobsResults.flat();
-
-        // Fetch all applications for company to compute stats
-        const appsResults = await Promise.all(
-          COMPANY_DASHBOARD_APP_STATUSES.map((status) =>
-            getCompanyApplicationsByStatus(user.uid, status, 500)
-          )
-        );
-        const allApplications = appsResults.flat();
-
-        // Calculate global metrics
-        const activeJobsCount = allJobs.filter(j => j.status === "open").length;
-        const totalApplicantsCount = allApplications.length;
-        const newApplicantsCount = allApplications.filter(a => a.status === "submitted").length;
-
-        setMetrics({
-          activeJobs: activeJobsCount,
-          totalApplicants: totalApplicantsCount,
-          newApplicants: newApplicantsCount,
-          upcomingInterviews: 0, // Placeholder
-        });
-
-        // Calculate per-job stats
-        const appsByJob = allApplications.reduce((acc, app) => {
-          if (!acc[app.jobId]) {
-            acc[app.jobId] = { total: 0, new: 0 };
-          }
-          acc[app.jobId].total += 1;
-          if (app.status === "submitted") {
-            acc[app.jobId].new += 1;
-          }
-          return acc;
-        }, {} as Record<string, { total: number; new: number }>);
-
-        const jobsWithStats: JobWithStats[] = allJobs.map(job => ({
-          ...job,
-          totalApplicants: appsByJob[job.id]?.total || 0,
-          newApplicants: appsByJob[job.id]?.new || 0,
-        }));
-
-        // Sort: Active first, then by createdAt desc (or just leave as is, which is grouped by status due to Promise.all order)
-        // Let's sort by active first
-        jobsWithStats.sort((a, b) => {
-          if (a.status === "open" && b.status !== "open") return -1;
-          if (a.status !== "open" && b.status === "open") return 1;
-          return 0;
-        });
-
-        setJobs(jobsWithStats);
-      } catch (fetchError) {
-        const message = fetchError instanceof Error ? fetchError.message : "Failed to load dashboard data.";
-        setError(message);
-        setJobs([]);
-      } finally {
-        setLoading(false);
-      }
+      await fetchDashboardData(user.uid);
     });
 
     return unsubscribe;
@@ -269,12 +272,13 @@ export default function CompanyDashboard() {
                 </tr>
               ) : (
                 jobs.map((job) => (
-                  <tr key={job.id} className="hover:bg-slate-50 transition-colors group">
+                  <tr 
+                    key={job.id} 
+                    onClick={() => setSelectedJob(job)}
+                    className="hover:bg-slate-50 transition-colors group cursor-pointer"
+                  >
                     <td className="px-6 py-4">
-                      <div 
-                        onClick={() => setSelectedJob(job)}
-                        className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors cursor-pointer inline-block"
-                      >
+                      <div className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
                         {job.title}
                       </div>
                     </td>
@@ -304,7 +308,10 @@ export default function CompanyDashboard() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button 
-                        onClick={() => router.push(`/company/jobs/${job.id}/candidates`)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/company/jobs/${job.id}/candidates`);
+                        }}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-indigo-600 rounded-lg text-sm font-medium transition-all cursor-pointer"
                       >
                         View Candidates
@@ -324,6 +331,11 @@ export default function CompanyDashboard() {
         <CompanyJobDetailsModal 
           job={selectedJob} 
           onClose={() => setSelectedJob(null)} 
+          onSuccess={() => {
+            const user = firebaseAuth.currentUser;
+            if (user) fetchDashboardData(user.uid);
+            setSelectedJob(null); // Close modal on success
+          }}
         />
       )}
     </div>

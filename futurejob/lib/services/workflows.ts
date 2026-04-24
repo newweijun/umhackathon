@@ -103,6 +103,11 @@ export async function updateApplicationStatus(
   }
 }
 
+export async function updateJobStatus(jobId: string, nextStatus: JobStatus) {
+  const jobRef = doc(firebaseDb, "jobs", jobId);
+  return updateDoc(jobRef, withUpdatedAt({ status: nextStatus }));
+}
+
 export type CreateInterviewInput = {
   applicationId: string;
   companyId: string;
