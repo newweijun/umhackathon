@@ -104,7 +104,6 @@ export async function getStudentRatingResults(
   const ratingQuery = query(
     ratingRef,
     where("studentId", "==", studentId),
-    orderBy("createdAt", "desc"),
     limit(take),
   );
 

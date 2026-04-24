@@ -17,12 +17,14 @@ interface JobMatchDetailsProps {
   job: JobMatch;
   onClose: () => void;
   onApply?: () => void; // Optional if parent needs to do anything extra
+  hideApply?: boolean;
 }
 
 export default function JobMatchDetails({
   job,
   onClose,
   onApply,
+  hideApply = false,
 }: JobMatchDetailsProps) {
   // 1. Moved state INSIDE the component
   const [isApplying, setIsApplying] = useState(false);
@@ -42,7 +44,7 @@ export default function JobMatchDetails({
       await applyForJob({
         studentId: user.uid,
         jobId: job.id,
-        companyId: job.company, // Ensure this maps to your actual company ID
+        companyId: job.companyId,
         role: job.role,
         companyName: job.company,
         matchScore: job.matchScore,
@@ -157,16 +159,18 @@ export default function JobMatchDetails({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 md:p-6 border-t border-slate-100 bg-white shrink-0 flex justify-end">
-          <button
-            onClick={handleApplyClick}
-            disabled={isApplying}
-            className="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-sm transition-colors cursor-pointer flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            <Briefcase className="w-4 h-4" />
-            {isApplying ? "Applying..." : "1-Click Apply"}
-          </button>
-        </div>
+        {!hideApply && (
+          <div className="p-4 md:p-6 border-t border-slate-100 bg-white shrink-0 flex justify-end">
+            <button
+              onClick={handleApplyClick}
+              disabled={isApplying}
+              className="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-sm transition-colors cursor-pointer flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              <Briefcase className="w-4 h-4" />
+              {isApplying ? "Applying..." : "1-Click Apply"}
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

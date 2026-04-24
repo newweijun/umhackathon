@@ -54,6 +54,7 @@ export type AdminUsersPageData = {
     email: string;
     role: string;
     provider: string;
+    isVerified?: boolean;
     createdAt: string;
     updatedAt: string;
   }>;
@@ -75,7 +76,15 @@ export type AdminJobsPageData = {
 };
 
 export type AdminModerationPageData = {
-  pendingApplications: AdminRecentRow[];
+  pendingApplications: Array<{
+    id: string;
+    name: string;
+    industry: string;
+    headquarters: string;
+    website: string;
+    about: string;
+    createdAt: string;
+  }>;
   recentAuditLogs: AdminRecentRow[];
   totalUsers: number;
   userCounts: Record<string, number>;
@@ -146,10 +155,10 @@ function isPermissionDeniedError(error: unknown) {
   );
 }
 
-async function getCollectionSnapshotOrEmpty(
-  queryPromise: Promise<unknown>,
+async function getCollectionSnapshotOrEmpty<T>(
+  queryPromise: Promise<T>,
   collectionName: string
-) {
+): Promise<T | { docs: any[]; size: number }> {
   try {
     return await queryPromise;
   } catch (error) {
@@ -166,19 +175,19 @@ async function getCollectionSnapshotOrEmpty(
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const [usersSnapshot, jobsSnapshot, applicationsSnapshot, ratingSnapshot, auditSnapshot] =
-    await Promise.all([
+    (await Promise.all([
       getCollectionSnapshotOrEmpty(adminDb.collection("users").get(), "users"),
       getCollectionSnapshotOrEmpty(adminDb.collection("jobs").get(), "jobs"),
       getCollectionSnapshotOrEmpty(adminDb.collection("applications").get(), "applications"),
       getCollectionSnapshotOrEmpty(adminDb.collection("ratingResults").get(), "ratingResults"),
       getCollectionSnapshotOrEmpty(adminDb.collection("auditLogs").get(), "auditLogs"),
-    ]);
+    ])) as any[];
 
   const roleCounts = countDocsByField(usersSnapshot.docs, "role", ["student", "company", "admin"]) as AdminRoleCounts;
   const jobCounts = countDocsByField(jobsSnapshot.docs, "status", ["draft", "open", "closed"]) as AdminJobCounts;
   const applicationCounts = countDocsByField(applicationsSnapshot.docs, "status", ["submitted", "reviewing", "approved", "rejected"]) as AdminApplicationCounts;
 
-  const recentUsers = usersSnapshot.docs.slice(0, 5).map((doc) => {
+  const recentUsers = usersSnapshot.docs.slice(0, 5).map((doc: any) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -188,7 +197,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     };
   });
 
-  const recentJobs = jobsSnapshot.docs.slice(0, 5).map((doc) => {
+  const recentJobs = jobsSnapshot.docs.slice(0, 5).map((doc: any) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -198,7 +207,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     };
   });
 
-  const recentApplications = applicationsSnapshot.docs.slice(0, 5).map((doc) => {
+  const recentApplications = applicationsSnapshot.docs.slice(0, 5).map((doc: any) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -208,7 +217,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     };
   });
 
-  const recentRatings = ratingSnapshot.docs.slice(0, 5).map((doc) => {
+  const recentRatings = ratingSnapshot.docs.slice(0, 5).map((doc: any) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -218,7 +227,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     };
   });
 
-  const recentAuditLogs = auditSnapshot.docs.slice(0, 5).map((doc) => {
+  const recentAuditLogs = auditSnapshot.docs.slice(0, 5).map((doc: any) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -246,23 +255,32 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 }
 
 export async function getAdminUsersPageData(): Promise<AdminUsersPageData> {
-  const [usersSnapshot, jobsSnapshot, applicationsSnapshot] = await Promise.all([
-    getCollectionSnapshotOrEmpty(
-      adminDb.collection("users").orderBy("createdAt", "desc").limit(50).get(),
-      "users"
-    ),
-    getCollectionSnapshotOrEmpty(adminDb.collection("jobs").get(), "jobs"),
-    getCollectionSnapshotOrEmpty(adminDb.collection("applications").get(), "applications"),
-  ]);
+  const [usersSnapshot, jobsSnapshot, applicationsSnapshot, companiesSnapshot] = 
+    (await Promise.all([
+      getCollectionSnapshotOrEmpty(
+        adminDb.collection("users").orderBy("createdAt", "desc").limit(50).get(),
+        "users"
+      ),
+      getCollectionSnapshotOrEmpty(adminDb.collection("jobs").get(), "jobs"),
+      getCollectionSnapshotOrEmpty(adminDb.collection("applications").get(), "applications"),
+      getCollectionSnapshotOrEmpty(adminDb.collection("companies").get(), "companies"),
+    ])) as any[];
 
-  const users = usersSnapshot.docs.map((doc) => {
+  const companyVerificationMap = companiesSnapshot.docs.reduce((acc: any, doc: any) => {
+    acc[doc.id] = doc.data()?.isVerified === true;
+    return acc;
+  }, {} as Record<string, boolean>);
+
+  const users = usersSnapshot.docs.map((doc: any) => {
     const data = doc.data();
+    const actualUid = data.uid || doc.id;
     return {
       id: doc.id,
       uid: asText(data.uid) || doc.id,
       email: asText(data.email),
       role: asText(data.role),
       provider: asText(data.provider),
+      isVerified: data.role === "company" ? (companyVerificationMap[actualUid] ?? false) : undefined,
       createdAt: formatDate(data.createdAt),
       updatedAt: formatDate(data.updatedAt),
     };
@@ -280,16 +298,17 @@ export async function getAdminUsersPageData(): Promise<AdminUsersPageData> {
 }
 
 export async function getAdminJobsPageData(): Promise<AdminJobsPageData> {
-  const [jobsSnapshot, applicationsSnapshot, ratingsSnapshot] = await Promise.all([
-    getCollectionSnapshotOrEmpty(
-      adminDb.collection("jobs").orderBy("createdAt", "desc").limit(50).get(),
-      "jobs"
-    ),
-    getCollectionSnapshotOrEmpty(adminDb.collection("applications").get(), "applications"),
-    getCollectionSnapshotOrEmpty(adminDb.collection("ratingResults").get(), "ratingResults"),
-  ]);
+  const [jobsSnapshot, applicationsSnapshot, ratingsSnapshot] = 
+    (await Promise.all([
+      getCollectionSnapshotOrEmpty(
+        adminDb.collection("jobs").orderBy("createdAt", "desc").limit(50).get(),
+        "jobs"
+      ),
+      getCollectionSnapshotOrEmpty(adminDb.collection("applications").get(), "applications"),
+      getCollectionSnapshotOrEmpty(adminDb.collection("ratingResults").get(), "ratingResults"),
+    ])) as any[];
 
-  const jobs = jobsSnapshot.docs.map((doc) => {
+  const jobs = jobsSnapshot.docs.map((doc: any) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -312,32 +331,49 @@ export async function getAdminJobsPageData(): Promise<AdminJobsPageData> {
 }
 
 export async function getAdminModerationPageData(): Promise<AdminModerationPageData> {
-  const [applicationsSnapshot, auditSnapshot, usersSnapshot] = await Promise.all([
-    getCollectionSnapshotOrEmpty(
-      adminDb.collection("applications").orderBy("createdAt", "desc").limit(50).get(),
-      "applications"
-    ),
-    getCollectionSnapshotOrEmpty(
-      adminDb.collection("auditLogs").orderBy("createdAt", "desc").limit(50).get(),
-      "auditLogs"
-    ),
-    getCollectionSnapshotOrEmpty(adminDb.collection("users").get(), "users"),
-  ]);
+  const [auditSnapshot, usersSnapshot, companiesSnapshot] = 
+    (await Promise.all([
+      getCollectionSnapshotOrEmpty(
+        adminDb.collection("auditLogs").orderBy("createdAt", "desc").limit(50).get(),
+        "auditLogs"
+      ),
+      getCollectionSnapshotOrEmpty(
+        adminDb.collection("users").where("role", "==", "company").get(),
+        "users"
+      ),
+      getCollectionSnapshotOrEmpty(
+        adminDb.collection("companies").get(),
+        "companies"
+      ),
+    ])) as any[];
 
-  const pendingApplications = applicationsSnapshot.docs
-    .filter((doc) => doc.data()?.status === "submitted" || doc.data()?.status === "reviewing")
-    .slice(0, 10)
-    .map((doc) => {
-      const data = doc.data();
+  const companyProfileMap = companiesSnapshot.docs.reduce((acc: any, doc: any) => {
+    acc[doc.id] = doc.data();
+    return acc;
+  }, {} as Record<string, any>);
+
+  const pendingApplications = usersSnapshot.docs
+    .filter((userDoc: any) => {
+      const uid = userDoc.data()?.uid || userDoc.id;
+      return companyProfileMap[uid]?.isVerified !== true;
+    })
+    .map((userDoc: any) => {
+      const userData = userDoc.data();
+      const uid = userData?.uid || userDoc.id;
+      const profileData = companyProfileMap[uid] || {};
+      
       return {
-        id: doc.id,
-        title: `Application ${asText(data.studentId)}`,
-        subtitle: `Job ${asText(data.jobId)} • ${asText(data.companyId)}`,
-        meta: `Status ${asText(data.status)} • ${formatDate(data.createdAt)}`,
+        id: uid,
+        name: asText(profileData.name) || asText(userData.email) || "Unnamed Company",
+        industry: asText(profileData.industry),
+        headquarters: asText(profileData.headquarters),
+        website: asText(profileData.website),
+        about: asText(profileData.about),
+        createdAt: formatDate(profileData.createdAt || userData.createdAt),
       };
     });
 
-  const recentAuditLogs = auditSnapshot.docs.slice(0, 10).map((doc) => {
+  const recentAuditLogs = auditSnapshot.docs.slice(0, 10).map((doc: any) => {
     const data = doc.data();
     return {
       id: doc.id,

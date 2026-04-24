@@ -68,9 +68,9 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // -------- companyProfiles --------
-    // Example: companyProfiles/{uid}
-    match /companyProfiles/{uid} {
+    // -------- companies --------
+    // Example: companies/{uid}
+    match /companies/{uid} {
       allow read: if isSignedIn();
       allow create, update: if (isSelf(uid) && isCompany()) || isAdmin();
       allow delete: if isAdmin();
@@ -79,7 +79,7 @@ service cloud.firestore {
     // -------- candidateProfiles --------
     // Example: candidateProfiles/{uid}
     match /candidateProfiles/{uid} {
-      allow read: if isSelf(uid) || isAdmin() || isCompany();
+      allow read: if isSignedIn();
       allow create, update: if (isSelf(uid) && isStudent()) || isAdmin();
       allow delete: if isSelf(uid) || isAdmin();
     }
@@ -88,11 +88,8 @@ service cloud.firestore {
     // Example: jobs/{jobId}
     // Required fields: companyId (uid), title, status ("draft"|"open"|"closed")
     match /jobs/{jobId} {
-      // Open jobs are publicly readable by signed-in users.
-      // Draft jobs are visible only to owner company or admin.
-      allow read: if isAdmin()
-        || (isCompany() && resource.data.companyId == request.auth.uid)
-        || (isStudent() && resource.data.status == "open");
+      // Open jobs are readable by any signed-in user.
+      allow read: if isSignedIn() && (resource.data.status == "open" || isAdmin() || (isCompany() && resource.data.companyId == request.auth.uid));
 
       allow create: if (isAdmin()
           || (isCompany() && request.resource.data.companyId == request.auth.uid))
