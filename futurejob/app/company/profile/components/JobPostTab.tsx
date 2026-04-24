@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { MapPin, DollarSign, Briefcase, Clock, ChevronRight, Loader2, AlertCircle } from "lucide-react";
 import { getCompanyJobsByStatus, type JobRecord } from "@/lib/services/jobs";
+import CompanyJobDetailsModal from "@/components/ui/company_view/CompanyJobDetailsModal";
 
 interface JobPostTabProps {
   companyId: string;
@@ -11,29 +13,31 @@ interface JobPostTabProps {
 }
 
 export default function JobPostTab({ companyId, companyName }: JobPostTabProps) {
+  const router = useRouter();
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobRecord | null>(null);
+
+  const fetchJobs = async () => {
+    if (!companyId) return;
+    setLoading(true);
+    try {
+      // Fetch jobs across different statuses
+      const openJobs = await getCompanyJobsByStatus(companyId, "open", 20);
+      const draftJobs = await getCompanyJobsByStatus(companyId, "draft", 20);
+      const closedJobs = await getCompanyJobsByStatus(companyId, "closed", 20);
+      
+      setJobs([...openJobs, ...draftJobs, ...closedJobs]);
+    } catch (err) {
+      console.error("Error fetching jobs:", err);
+      setError("Failed to load job postings.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchJobs() {
-      if (!companyId) return;
-      setLoading(true);
-      try {
-        // Fetch open jobs. Could also fetch all statuses if needed.
-        const openJobs = await getCompanyJobsByStatus(companyId, "open", 20);
-        const draftJobs = await getCompanyJobsByStatus(companyId, "draft", 20);
-        const closedJobs = await getCompanyJobsByStatus(companyId, "closed", 20);
-        
-        setJobs([...openJobs, ...draftJobs, ...closedJobs]);
-      } catch (err) {
-        console.error("Error fetching jobs:", err);
-        setError("Failed to load job postings.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
     fetchJobs();
   }, [companyId]);
 
@@ -98,6 +102,7 @@ export default function JobPostTab({ companyId, companyName }: JobPostTabProps) 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
+              onClick={() => setSelectedJob(job)}
               className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer group"
             >
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
@@ -145,14 +150,32 @@ export default function JobPostTab({ companyId, companyName }: JobPostTabProps) 
 
               {/* Action Button */}
               <div className="flex gap-3">
-                <button className="px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
-                  View Applicants
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/company/jobs/${job.id}/candidates`);
+                  }}
+                  className="px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  View Candidates
                 </button>
               </div>
             </motion.div>
           ))
         )}
       </div>
+
+      {/* Job Details Modal */}
+      {selectedJob && (
+        <CompanyJobDetailsModal 
+          job={selectedJob} 
+          onClose={() => setSelectedJob(null)} 
+          onSuccess={() => {
+            fetchJobs();
+            setSelectedJob(null);
+          }}
+        />
+      )}
     </div>
   );
 }
