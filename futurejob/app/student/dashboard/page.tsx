@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
 import { Search, Filter, Building2, Briefcase, Loader2 } from "lucide-react";
 import {
   getStudentApplications,
@@ -17,6 +18,7 @@ import JobMatchDetails from "@/components/ui/student_view/matches/JobMatchDetail
 
 type DashboardApplication = {
   id: string;
+  companyId: string;
   companyName: string;
   role: string;
   status: "Applied" | "Under Review" | "Interviewing" | "Offered" | "Rejected";
@@ -51,22 +53,13 @@ function toText(value: unknown) {
 }
 
 export default function StudentDashboard() {
+  const router = useRouter();
   const [applications, setApplications] = useState<DashboardApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  useEffect(() => {
-    const user = firebaseAuth.currentUser;
-    if (!user) return;
 
-    user.getIdTokenResult(true).then((result) => {
-      // true = force refresh
-      console.log("UID:", user.uid);
-      console.log("Email:", user.email);
-      console.log("Claims:", JSON.stringify(result.claims));
-    });
-  }, []);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
       if (!user) {
@@ -144,6 +137,7 @@ export default function StudentDashboard() {
 
           return {
             id: app.id,
+            companyId: app.companyId,
             companyName,
             role,
             status: normalizeStatus(app.status),
@@ -260,20 +254,23 @@ export default function StudentDashboard() {
                   filteredApplications.map((app) => (
                     <tr
                       key={app.id}
-                      onClick={() =>
-                        app.jobDetails && setSelectedJob(app.jobDetails)
-                      }
-                      className="hover:bg-indigo-50/30 transition-colors duration-150 cursor-pointer group"
+                      className="hover:bg-slate-50 transition-colors duration-150"
                     >
                       <td className="px-8 py-5">
-                        <div className="font-semibold text-slate-900 flex items-center gap-2 group-hover:text-indigo-600 transition-colors">
-                          <Briefcase className="w-4 h-4 text-indigo-500" />
+                        <div 
+                          onClick={() => app.jobDetails && setSelectedJob(app.jobDetails)}
+                          className="font-semibold text-slate-900 flex items-center gap-2 hover:text-indigo-600 transition-colors cursor-pointer group/role"
+                        >
+                          <Briefcase className="w-4 h-4 text-indigo-500 group-hover/role:text-indigo-600 transition-colors" />
                           {app.role}
                         </div>
                       </td>
                       <td className="px-8 py-5">
-                        <div className="text-slate-700 font-medium flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-slate-400" />
+                        <div 
+                          onClick={() => router.push(`/student/company/${app.companyId}`)}
+                          className="text-slate-700 font-medium flex items-center gap-2 hover:text-indigo-600 transition-colors cursor-pointer group/company"
+                        >
+                          <Building2 className="w-4 h-4 text-slate-400 group-hover/company:text-indigo-500 transition-colors" />
                           {app.companyName}
                         </div>
                       </td>
