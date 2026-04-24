@@ -1,69 +1,102 @@
 "use client";
 
+import { Calendar, Clock, Video } from "lucide-react";
 import { type InterviewRecord } from "@/lib/services/interviews";
 import { type CandidateProfileRecord } from "@/lib/services/candidateProfiles";
 
 interface InterviewCardProps {
   interview: InterviewRecord;
-  candidate: CandidateProfileRecord | undefined;
+  candidate: CandidateProfileRecord | undefined; // Make sure your interface has 'email' defined!
 }
 
-export default function InterviewCard({ interview, candidate }: InterviewCardProps) {
-  const date = interview.scheduledAt?.toDate ? interview.scheduledAt.toDate() : new Date(interview.scheduledAt);
-  
+export default function InterviewCard({
+  interview,
+  candidate,
+}: InterviewCardProps) {
+  // Safely parse the Firebase date
+  const dateObj = interview.scheduledAt?.toDate
+    ? interview.scheduledAt.toDate()
+    : new Date(interview.scheduledAt || Date.now());
+
+  const dateStr = dateObj.toLocaleDateString("en-MY", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+  const timeStr = dateObj.toLocaleTimeString("en-MY", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  // Extract candidate details
+  const candidateName =
+    candidate?.fullName || candidate?.name || "Student Candidate";
+  const candidateEmail = String(candidate?.email || "No email provided");
+  const initials = candidateEmail.charAt(0).toUpperCase(); // Uses email for the avatar initial
+
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold">
-            {(candidate?.fullName || candidate?.name || "?")[0].toUpperCase()}
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-shadow">
+      {/* Left Side: Candidate Info & Time */}
+      <div className="flex gap-4 md:gap-6 min-w-0 flex-1">
+        <div className="flex flex-col gap-4 w-full">
+          {/* Avatar & User Details */}
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+            <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shrink-0 text-lg">
+              {initials}
+            </div>
+            <div className="flex flex-col items-start text-left truncate overflow-hidden pr-2">
+              <span className="text-sm font-bold text-slate-900 truncate w-full">
+                {candidateName}
+              </span>
+              <span className="text-xs text-slate-500 truncate w-full">
+                {candidateEmail}
+              </span>
+            </div>
           </div>
+
+          {/* Interview Details */}
           <div>
-            <h3 className="font-bold text-slate-900">{candidate?.fullName || candidate?.name || "Candidate"}</h3>
-            <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">Job ID: {interview.jobId?.slice(-6) || "N/A"}</p>
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-lg font-bold text-slate-900 truncate">
+                {interview.role}
+              </h2>
+              <span
+                className={`shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  interview.status === "scheduled"
+                    ? "bg-amber-50 text-amber-600 border border-amber-100"
+                    : interview.status === "completed"
+                      ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                      : "bg-slate-50 text-slate-600 border border-slate-100"
+                }`}
+              >
+                {interview.status}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 mt-3">
+              <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-md border border-slate-100">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <span className="font-medium">{dateStr}</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-md border border-slate-100">
+                <Clock className="w-4 h-4 text-slate-400" />
+                <span className="font-medium">{timeStr}</span>
+              </div>
+            </div>
           </div>
         </div>
-        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-          interview.status === "scheduled" ? "bg-amber-50 text-amber-600 border border-amber-100" :
-          interview.status === "completed" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
-          "bg-slate-50 text-slate-600 border border-slate-100"
-        }`}>
-          {interview.status}
-        </span>
       </div>
-      
-      <div className="space-y-3 mb-5">
-        <div className="flex items-center gap-2 text-sm text-slate-600">
-          <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          {date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-        </div>
-        <div className="flex items-center gap-2 text-sm text-slate-600">
-          <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </div>
-        {interview.meetingLink && (
-          <div className="flex items-center gap-2 text-sm text-indigo-600 font-medium truncate">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            <a href={interview.meetingLink} target="_blank" rel="noopener noreferrer" className="hover:underline">
-              Join Meeting
-            </a>
-          </div>
-        )}
-      </div>
-      
-      <div className="flex gap-2">
-        <button className="flex-1 py-2 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-100">
-          Reschedule
-        </button>
-        <button className="flex-1 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-100">
-          Notes
-        </button>
+
+      {/* Right Side: Actions & Links */}
+      <div className="shrink-0 flex flex-col justify-center gap-3 md:border-l border-slate-100 md:pl-6 md:w-56 mt-4 md:mt-0">
+        <a
+          href={interview.meetingLink || "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors cursor-pointer flex justify-center items-center gap-2"
+        >
+          <Video className="w-4 h-4" /> Join Google Meet
+        </a>
       </div>
     </div>
   );
