@@ -9,6 +9,7 @@ import {
   getDocs,
   query,
   where,
+  serverTimestamp,
 } from "firebase/firestore";
 import {
   type ApplicationStatus,
@@ -157,16 +158,16 @@ export async function saveResumeRecord(input: {
   studentId: string;
   targetRole: string;
   atsScore: number;
+  resumeData: any; // 👈 Add this to store the JSON data
 }) {
   const resumesRef = collection(firebaseDb, "resumes");
-  return addDoc(
-    resumesRef,
-    withCreatedAndUpdatedAt({
-      studentId: input.studentId,
-      role: input.targetRole,
-      score: input.atsScore,
-    }),
-  );
+  return addDoc(resumesRef, {
+    studentId: input.studentId,
+    role: input.targetRole,
+    score: input.atsScore, // Mapping atsScore (input) to score (Firestore field)
+    resumeData: input.resumeData,
+    createdAt: serverTimestamp(),
+  });
 }
 
 // 3. Function to Fetch Past Resumes
@@ -193,7 +194,10 @@ export async function getStudentResumes(studentId: string) {
       throw error;
     }
 
-    const fallbackQuery = query(resumesRef, where("studentId", "==", studentId));
+    const fallbackQuery = query(
+      resumesRef,
+      where("studentId", "==", studentId),
+    );
     const fallbackSnapshot = await getDocs(fallbackQuery);
     const resumes = fallbackSnapshot.docs.map((doc) => ({
       id: doc.id,
@@ -201,9 +205,28 @@ export async function getStudentResumes(studentId: string) {
     })) as Array<{ id: string; createdAt?: { toMillis?: () => number } }>;
 
     return resumes.sort((a, b) => {
-      const aMs = (a.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
-      const bMs = (b.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+      const aMs =
+        (
+          a.createdAt as { toMillis?: () => number } | undefined
+        )?.toMillis?.() ?? 0;
+      const bMs =
+        (
+          b.createdAt as { toMillis?: () => number } | undefined
+        )?.toMillis?.() ?? 0;
       return bMs - aMs;
     });
+    return fallbackSnapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => {
+        const aMs =
+          (
+            a.createdAt as { toMillis?: () => number } | undefined
+          )?.toMillis?.() ?? 0;
+        const bMs =
+          (
+            b.createdAt as { toMillis?: () => number } | undefined
+          )?.toMillis?.() ?? 0;
+        return bMs - aMs;
+      });
   }
 }

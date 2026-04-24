@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+// 1. Corrected router import
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -15,10 +16,12 @@ import {
   User as UserIcon,
   ChevronUp,
 } from "lucide-react";
-import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+// 2. Added useEffect
+
+// 3. Changed import path to standard 'firebase/auth' and added onAuthStateChanged
+import { signOut, onAuthStateChanged, User } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase/client";
 
-// Updated for the Student View feature set
 const navItems = [
   { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { name: "Resume Lab", href: "/student/resume", icon: FileText },
@@ -35,10 +38,13 @@ export default function Sidebar({
   setIsOpen?: (v: boolean) => void;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const router = useRouter(); // Initialize router inside the component
+
+  // 4. Moved State and Refs INSIDE the component body
   const [user, setUser] = useState<User | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // 5. Added an Auth Listener so the sidebar actually knows who is logged in
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (currentUser) => {
       setUser(currentUser);
@@ -46,6 +52,7 @@ export default function Sidebar({
     return () => unsubscribe();
   }, []);
 
+  // 6. Moved handleLogout INSIDE the component body
   const handleLogout = async () => {
     try {
       await signOut(firebaseAuth);
@@ -65,9 +72,7 @@ export default function Sidebar({
         />
       )}
 
-      {/* On mobile: width 64 (16rem), offscreen unless isOpen is true.
-        On desktop: width 20 (5rem), expands to 64 (16rem) on hover. group class added for styling children.
-      */}
+      {/* Sidebar Container */}
       <aside
         className={`bg-white border-r border-slate-200 h-screen flex flex-col fixed left-0 top-0 z-50 transition-all duration-300 ease-in-out group ${
           isOpen
@@ -122,18 +127,24 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* Footer Profile Dropdown */}
-        <div className="p-3 border-t border-slate-100 relative group/profile" ref={dropdownRef}>
-          <div className={`absolute bottom-full left-3 right-3 pb-2 opacity-0 invisible group-hover/profile:opacity-100 group-hover/profile:visible transition-all duration-200 z-50 ${isOpen ? '' : 'md:hidden group-hover:block'}`}>
+        {/* Footer Settings */}
+        <div
+          className="p-3 border-t border-slate-100 relative group/profile"
+          ref={dropdownRef}
+        >
+          <div
+            className={`absolute bottom-full left-3 right-3 pb-2 opacity-0 invisible group-hover/profile:opacity-100 group-hover/profile:visible transition-all duration-200 z-50 ${isOpen ? "" : "md:hidden group-hover:block"}`}
+          >
             <div className="bg-white border border-slate-200 rounded-xl shadow-lg py-2 overflow-hidden">
-              <Link 
-                href="/student/profile" 
+              {/* Updated link from /company/profile to /student/profile */}
+              <Link
+                href="/student/profile"
                 className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 <UserIcon className="w-4 h-4 text-slate-500" />
                 Profile
               </Link>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="flex items-center gap-3 px-4 py-2 w-full text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
               >
@@ -142,14 +153,16 @@ export default function Sidebar({
               </button>
             </div>
           </div>
-          
           <div className="flex items-center gap-3 px-3 py-3 w-full rounded-xl text-slate-700 hover:bg-slate-50 transition-colors duration-200 cursor-pointer overflow-hidden whitespace-nowrap">
             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shrink-0">
               {user?.email?.charAt(0).toUpperCase() || "U"}
             </div>
-            
-            <div className={`flex items-center justify-between flex-1 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'md:opacity-0 group-hover:opacity-100'}`}>
+
+            <div
+              className={`flex items-center justify-between flex-1 transition-opacity duration-300 ${isOpen ? "opacity-100" : "md:opacity-0 group-hover:opacity-100"}`}
+            >
               <div className="flex flex-col items-start text-left truncate overflow-hidden pr-2">
+                {/* Updated default text to Student */}
                 <span className="text-sm font-semibold truncate w-full">
                   {user?.displayName || "Student User"}
                 </span>

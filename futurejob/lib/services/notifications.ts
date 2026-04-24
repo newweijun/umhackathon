@@ -27,8 +27,8 @@ export interface NotificationRecord {
   createdAt: any;
 }
 
-export async function createNotification(
-  data: Omit<NotificationRecord, "id" | "createdAt" | "read">
+export async function createNotification2(
+  data: Omit<NotificationRecord, "id" | "createdAt" | "read">,
 ): Promise<string> {
   const notificationsRef = collection(firebaseDb, "notifications");
   const docRef = await addDoc(notificationsRef, {
@@ -40,13 +40,13 @@ export async function createNotification(
 }
 
 export async function getUserNotifications(
-  userId: string
+  userId: string,
 ): Promise<NotificationRecord[]> {
   const notificationsRef = collection(firebaseDb, "notifications");
   const q = query(
     notificationsRef,
     where("userId", "==", userId),
-    orderBy("createdAt", "desc")
+    orderBy("createdAt", "desc"),
   );
 
   const snapshot = await getDocs(q);
@@ -57,7 +57,7 @@ export async function getUserNotifications(
 }
 
 export async function markNotificationAsRead(
-  notificationId: string
+  notificationId: string,
 ): Promise<void> {
   const notificationRef = doc(firebaseDb, "notifications", notificationId);
   await updateDoc(notificationRef, {

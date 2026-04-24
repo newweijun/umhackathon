@@ -15,7 +15,7 @@ export default function ResumeAnalysis() {
             Current ATS Score: Fair
           </h2>
           <p className="text-slate-500 mt-1">
-            Your latest resume for "Fullstack Intern" is missing some critical
+            Your latest resume for Fullstack Intern is missing some critical
             keywords and quantifiable metrics. Fixing these will highly increase
             your chances of passing automated screenings.
           </p>
@@ -32,8 +32,8 @@ export default function ResumeAnalysis() {
             <li className="flex gap-3 text-sm text-rose-900">
               <span className="font-bold">•</span>
               <div>
-                <strong>Lack of Metrics:</strong> You stated you "Improved load
-                speed" but did not mention the initial vs final speed, or the
+                <strong>Lack of Metrics:</strong> You stated you Improved load
+                speed but did not mention the initial vs final speed, or the
                 tools used to measure it.
               </div>
             </li>
@@ -41,7 +41,7 @@ export default function ResumeAnalysis() {
               <span className="font-bold">•</span>
               <div>
                 <strong>Missing Keywords:</strong> The job description asks for
-                "Git" and "Agile", neither of which appear in your Core Skills
+                Git and Agile, neither of which appear in your Core Skills
                 section.
               </div>
             </li>
