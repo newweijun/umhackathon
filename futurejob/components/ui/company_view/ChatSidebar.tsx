@@ -52,9 +52,11 @@ export default function ChatSidebar({
                 </div>
                 <div className="text-left min-w-0">
                   <p className="font-semibold text-slate-900 truncate">
-                    {participant?.name || "Loading..."}
+                    {participant?.name || "Anonymous User"}
                   </p>
-                  <p className="text-xs text-slate-500 truncate">{String(app.role)}</p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {String(app.role)}
+                  </p>
                 </div>
               </button>
             );
