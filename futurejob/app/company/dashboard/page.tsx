@@ -13,6 +13,7 @@ import {
   type JobStatus,
 } from "@/lib/services";
 import { firebaseAuth } from "@/lib/firebase/client";
+import CompanyJobDetailsModal from "@/components/ui/company_view/CompanyJobDetailsModal";
 
 type JobWithStats = JobRecord & {
   totalApplicants: number;
@@ -34,6 +35,7 @@ export default function CompanyDashboard() {
   const [jobs, setJobs] = useState<JobWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobRecord | null>(null);
   
   const [metrics, setMetrics] = useState({
     activeJobs: 0,
@@ -269,10 +271,12 @@ export default function CompanyDashboard() {
                 jobs.map((job) => (
                   <tr key={job.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4">
-                      <div className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                      <div 
+                        onClick={() => setSelectedJob(job)}
+                        className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors cursor-pointer inline-block"
+                      >
                         {job.title}
                       </div>
-                      {/* You could add a created date here if desired */}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
@@ -314,6 +318,14 @@ export default function CompanyDashboard() {
           </table>
         </div>
       </div>
+
+      {/* Job Details Modal */}
+      {selectedJob && (
+        <CompanyJobDetailsModal 
+          job={selectedJob} 
+          onClose={() => setSelectedJob(null)} 
+        />
+      )}
     </div>
   );
 }
