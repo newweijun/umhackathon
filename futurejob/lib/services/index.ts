@@ -1,3 +1,4 @@
+export * from "./companyProfile";
 export * from "./jobs";
 export * from "./applications";
 export * from "./candidateProfiles";

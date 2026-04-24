@@ -2,6 +2,7 @@
 import {
   doc,
   getDoc,
+  setDoc,
   type DocumentData,
   type DocumentSnapshot,
 } from "firebase/firestore";
@@ -11,6 +12,14 @@ export interface CompanyProfileRecord {
   id: string;
   name?: string;
   logoUrl?: string;
+  industry?: string;
+  size?: string;
+  headquarters?: string;
+  website?: string;
+  about?: string;
+  mission?: string;
+  founded?: string;
+  specialties?: string[] | string;
   [key: string]: unknown;
 }
 
@@ -19,6 +28,20 @@ function toCompanyProfileRecord(
 ): CompanyProfileRecord | null {
   if (!snapshot.exists()) return null;
   return { id: snapshot.id, ...snapshot.data() } as CompanyProfileRecord;
+}
+
+export async function getCompanyProfile(
+  uid: string
+): Promise<CompanyProfileRecord | null> {
+  const snapshot = await getDoc(doc(firebaseDb, "companies", uid));
+  return toCompanyProfileRecord(snapshot);
+}
+
+export async function updateCompanyProfile(
+  uid: string,
+  data: Partial<Omit<CompanyProfileRecord, "id">>
+): Promise<void> {
+  await setDoc(doc(firebaseDb, "companies", uid), data, { merge: true });
 }
 
 export async function getCompanyProfilesByIds(

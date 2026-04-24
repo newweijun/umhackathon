@@ -1,89 +1,59 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { MapPin, DollarSign, Briefcase, Clock, ChevronRight } from "lucide-react";
+import { MapPin, DollarSign, Briefcase, Clock, ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { getCompanyJobsByStatus, type JobRecord } from "@/lib/services/jobs";
 
-export default function JobPostTab() {
-  const jobs = [
-    {
-      id: 1,
-      title: "Senior Full Stack Engineer",
-      location: "Mountain View, CA",
-      level: "Senior",
-      salary: "$180k - $250k",
-      type: "Full-time",
-      posted: "2 days ago",
-      applicants: 234,
-      description:
-        "We're looking for an experienced full stack engineer to join our platform team...",
-      tags: ["React", "Node.js", "TypeScript", "PostgreSQL"],
-    },
-    {
-      id: 2,
-      title: "Product Manager - AI/ML",
-      location: "Mountain View, CA",
-      level: "Senior",
-      salary: "$200k - $280k",
-      type: "Full-time",
-      posted: "5 days ago",
-      applicants: 189,
-      description:
-        "Lead the product strategy for our AI and machine learning initiatives...",
-      tags: ["Product Strategy", "AI/ML", "Data Analysis", "Leadership"],
-    },
-    {
-      id: 3,
-      title: "UX/UI Designer",
-      location: "San Francisco, CA",
-      level: "Mid-level",
-      salary: "$140k - $200k",
-      type: "Full-time",
-      posted: "1 week ago",
-      applicants: 156,
-      description:
-        "Design beautiful and intuitive user experiences for millions of users...",
-      tags: ["Figma", "UI Design", "UX Research", "Prototyping"],
-    },
-    {
-      id: 4,
-      title: "Cloud Infrastructure Engineer",
-      location: "Remote",
-      level: "Senior",
-      salary: "$190k - $260k",
-      type: "Full-time",
-      posted: "1 week ago",
-      applicants: 267,
-      description:
-        "Build and maintain the infrastructure that powers Google Cloud...",
-      tags: ["Kubernetes", "GCP", "Terraform", "DevOps"],
-    },
-    {
-      id: 5,
-      title: "Data Scientist",
-      location: "Mountain View, CA",
-      level: "Mid-level",
-      salary: "$150k - $220k",
-      type: "Full-time",
-      posted: "2 weeks ago",
-      applicants: 342,
-      description:
-        "Use data and machine learning to solve real-world problems...",
-      tags: ["Python", "ML", "Data Analysis", "Statistics"],
-    },
-    {
-      id: 6,
-      title: "Technical Program Manager",
-      location: "Sunnyvale, CA",
-      level: "Mid-level",
-      salary: "$160k - $230k",
-      type: "Full-time",
-      posted: "2 weeks ago",
-      applicants: 198,
-      description:
-        "Coordinate cross-functional teams to deliver impactful products...",
-      tags: ["Project Management", "Coordination", "Analytics", "Leadership"],
-    },
-  ];
+interface JobPostTabProps {
+  companyId: string;
+  companyName: string;
+}
+
+export default function JobPostTab({ companyId, companyName }: JobPostTabProps) {
+  const [jobs, setJobs] = useState<JobRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchJobs() {
+      if (!companyId) return;
+      setLoading(true);
+      try {
+        // Fetch open jobs. Could also fetch all statuses if needed.
+        const openJobs = await getCompanyJobsByStatus(companyId, "open", 20);
+        const draftJobs = await getCompanyJobsByStatus(companyId, "draft", 20);
+        const closedJobs = await getCompanyJobsByStatus(companyId, "closed", 20);
+        
+        setJobs([...openJobs, ...draftJobs, ...closedJobs]);
+      } catch (err) {
+        console.error("Error fetching jobs:", err);
+        setError("Failed to load job postings.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchJobs();
+  }, [companyId]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-4" />
+        <p className="text-slate-500 font-medium">Loading job postings...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <AlertCircle className="w-8 h-8 text-rose-500 mb-4" />
+        <p className="text-slate-500 font-medium">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -94,7 +64,7 @@ export default function JobPostTab() {
         className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8"
       >
         <h2 className="text-2xl font-bold text-slate-900 mb-2">
-          Google has {jobs.length} job openings - find the one for you.
+          {companyName || "Your Company"} has {jobs.length} job postings.
         </h2>
         <p className="text-slate-600 mb-6">
           Explore career opportunities across our organization. Join a team of
@@ -104,7 +74,7 @@ export default function JobPostTab() {
         <div className="flex flex-col md:flex-row gap-3">
           <input
             type="text"
-            placeholder="Job title or keyword"
+            placeholder="Search within your jobs..."
             className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
           <button className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors">
@@ -115,79 +85,73 @@ export default function JobPostTab() {
 
       {/* Jobs Grid */}
       <div className="space-y-4">
-        {jobs.map((job, index) => (
-          <motion.div
-            key={job.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer group"
-          >
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
-              <div className="flex-1">
-                <div className="flex items-start justify-between gap-4 mb-2">
-                  <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                    {job.title}
-                  </h3>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors mt-1" />
-                </div>
-                <p className="text-slate-600 text-sm mb-4">{job.description}</p>
+        {jobs.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+            <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-slate-900 mb-2">No jobs posted yet</h3>
+            <p className="text-slate-500">When you post a job, it will appear here.</p>
+          </div>
+        ) : (
+          jobs.map((job, index) => (
+            <motion.div
+              key={job.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer group"
+            >
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-4 mb-2">
+                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                      {job.title}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                        job.status === "open" 
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                          : job.status === "draft"
+                          ? "bg-slate-100 text-slate-700 border-slate-200"
+                          : "bg-rose-50 text-rose-700 border-rose-200"
+                      }`}>
+                        {String(job.status).toUpperCase()}
+                      </span>
+                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                    </div>
+                  </div>
+                  <p className="text-slate-600 text-sm mb-4 line-clamp-2">{(job.aboutJob as string) || "No description provided."}</p>
 
-                {/* Job Details */}
-                <div className="flex flex-wrap gap-4 text-sm text-slate-600 mb-4">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4 text-slate-500" />
-                    <span>{job.location}</span>
+                  {/* Job Details */}
+                  <div className="flex flex-wrap gap-4 text-sm text-slate-600 mb-4">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-slate-500" />
+                      <span>{(job.locationType as string) || "Remote"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Briefcase className="w-4 h-4 text-slate-500" />
+                      <span>{(job.employmentType as string) || "Full-time"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <DollarSign className="w-4 h-4 text-slate-500" />
+                      <span>RM {(job.salaryRange as string) || "N/A"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-slate-500" />
+                      <span>Posted recently</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Briefcase className="w-4 h-4 text-slate-500" />
-                    <span>{job.level}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <DollarSign className="w-4 h-4 text-slate-500" />
-                    <span>{job.salary}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-slate-500" />
-                    <span>{job.posted}</span>
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {job.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-medium"
-                    >
-                      {tag}
-                    </span>
-                  ))}
                 </div>
               </div>
 
-              {/* Right Side Info */}
-              <div className="flex flex-col items-end gap-2">
-                <span className="text-sm font-medium text-slate-900">
-                  {job.applicants} applicants
-                </span>
-                <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
-                  {job.type}
-                </span>
+              {/* Action Button */}
+              <div className="flex gap-3">
+                <button className="px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
+                  View Applicants
+                </button>
               </div>
-            </div>
-
-            {/* Button */}
-            <div className="flex gap-3">
-              <button className="flex-1 md:flex-none px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
-                View Job
-              </button>
-              <button className="flex-1 md:flex-none px-6 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
-                Save
-              </button>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          ))
+        )}
       </div>
     </div>
   );
