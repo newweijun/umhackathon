@@ -6,8 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
-  onIdTokenChanged,
   onAuthStateChanged,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -19,6 +19,7 @@ import { firebaseAuth, firebaseDb } from "@/lib/firebase/client";
 import { withCreatedAndUpdatedAt } from "@/lib/services/timestamps";
 
 type Mode = "signin" | "signup";
+
 const AUTH_COOKIE_NAME = "fj_token";
 
 function setAuthCookie(token: string) {
@@ -49,9 +50,22 @@ async function readApiErrorMessage(response: Response) {
   return rawText;
 }
 
+function getDefaultDashboardPath(role: UserRole) {
+  if (role === "admin") {
+    return "/admin/dashboard";
+  }
+
+  if (role === "company") {
+    return "/company/dashboard";
+  }
+
+  return "/student/dashboard";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -63,10 +77,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLocalHostReady, setIsLocalHostReady] = useState(false);
 
+  const nextParam = searchParams.get("next");
   const hiddenAdminEnabled =
     isLocalHostReady && process.env.NODE_ENV !== "production" && searchParams.get("admin") === "1";
-
-  const nextParam = searchParams.get("next");
 
   useEffect(() => {
     setIsLocalHostReady(
@@ -94,6 +107,7 @@ export default function LoginPage() {
     async function fetchRole() {
       if (!user) {
         setRole(null);
+        setProfileLoading(false);
         return;
       }
 
@@ -129,57 +143,7 @@ export default function LoginPage() {
     fetchRole();
   }, [user]);
 
-  useEffect(() => {
-    async function syncClaimsAndRedirect() {
-      if (!user || !role) {
-        return;
-      }
-
-      setClaimsSyncing(true);
-      setError(null);
-
-      try {
-        const idToken = await user.getIdToken();
-        const response = await fetch("/api/auth/sync-claims", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          const message = await readApiErrorMessage(response);
-          throw new Error(message);
-        }
-
-        await user.getIdToken(true);
-
-        const roleDefaultPath =
-          role === "admin"
-            ? "/admin/dashboard"
-            : role === "company"
-              ? "/company/dashboard"
-              : "/student/dashboard";
-
-        const isSafeNextPath =
-          typeof nextParam === "string" && nextParam.startsWith("/") && !nextParam.startsWith("//");
-
-        const targetPath = isSafeNextPath ? nextParam : roleDefaultPath;
-        router.replace(targetPath);
-      } catch (syncError) {
-        const message = syncError instanceof Error ? syncError.message : "Failed to sync role claims.";
-        setError(message);
-      } finally {
-        setClaimsSyncing(false);
-      }
-    }
-
-    syncClaimsAndRedirect();
-  }, [user, role, router, nextParam]);
-
-  const actionLabel = useMemo(() => {
-    return mode === "signin" ? "Log in" : "Create account";
-  }, [mode]);
+  const actionLabel = useMemo(() => (mode === "signin" ? "Log in" : "Create account"), [mode]);
 
   async function handleEmailAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -201,9 +165,49 @@ export default function LoginPage() {
     }
   }
 
+  async function handleContinueWithThisAccount() {
+    if (!user || !role) {
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+    setClaimsSyncing(true);
+
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch("/api/auth/sync-claims", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const message = await readApiErrorMessage(response);
+        throw new Error(message);
+      }
+
+      const refreshedToken = await user.getIdToken(true);
+      setAuthCookie(refreshedToken);
+
+      const isSafeNextPath = typeof nextParam === "string" && nextParam.startsWith("/") && !nextParam.startsWith("//");
+      const targetPath = isSafeNextPath ? nextParam : getDefaultDashboardPath(role);
+
+      router.replace(targetPath);
+    } catch (syncError) {
+      const message = syncError instanceof Error ? syncError.message : "Failed to sync role claims.";
+      setError(message);
+    } finally {
+      setLoading(false);
+      setClaimsSyncing(false);
+    }
+  }
+
   async function handleGoogleAuth() {
     setError(null);
     setLoading(true);
+
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(firebaseAuth, provider);
@@ -218,6 +222,7 @@ export default function LoginPage() {
   async function handleSignOut() {
     setError(null);
     setLoading(true);
+
     try {
       await signOut(firebaseAuth);
       clearAuthCookie();
@@ -265,7 +270,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md glass-card p-8">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 mb-3">FutureJob</p>
         <h1 className="text-2xl font-bold text-slate-900 mb-2">Authentication</h1>
-        <p className="text-sm text-slate-500 mb-6">Use Email/Password or Google to continue.</p>
+        <p className="text-sm text-slate-500 mb-6">Use Email/Password or Google.</p>
 
         <div className="flex rounded-lg p-1 bg-slate-100 mb-6">
           <button
@@ -301,7 +306,7 @@ export default function LoginPage() {
               </div>
             ) : !role ? (
               <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 space-y-3">
-                <p className="text-sm text-indigo-900 font-semibold">Choose your role to continue</p>
+                <p className="text-sm text-indigo-900 font-semibold">Choose a role</p>
                 <div className={`grid ${hiddenAdminEnabled ? "grid-cols-3" : "grid-cols-2"} gap-2`}>
                   <button
                     type="button"
@@ -330,43 +335,33 @@ export default function LoginPage() {
                     </button>
                   ) : null}
                 </div>
-                <p className="text-xs text-indigo-700">
-                  Your selection will be saved to Firestore users/{user.uid}.
-                </p>
-                {hiddenAdminEnabled ? (
-                  <p className="text-xs text-amber-700">
-                    Hidden local admin mode is enabled. This is only visible on localhost with ?admin=1.
-                  </p>
-                ) : null}
               </div>
             ) : (
               <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
-                <p className="text-sm text-indigo-900 font-semibold">Role detected: {role}</p>
+                <p className="text-sm text-indigo-900 font-semibold">Signed in as {role}</p>
                 <p className="text-xs text-indigo-700 mt-1">
-                  {claimsSyncing ? "Syncing custom claims..." : "Redirecting to your dashboard..."}
+                  {claimsSyncing ? "Syncing custom claims..." : "Continue or sign out."}
                 </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleContinueWithThisAccount}
+                    disabled={loading || claimsSyncing}
+                    className="rounded-lg bg-white border border-indigo-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+                  >
+                    {loading ? "Continuing..." : "Continue with this account"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    disabled={loading}
+                    className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-70"
+                  >
+                    Sign out
+                  </button>
+                </div>
               </div>
             )}
-
-            <button
-              type="button"
-              onClick={handleSignOut}
-              disabled={loading}
-              className="w-full rounded-lg bg-slate-900 text-white py-2.5 text-sm font-semibold hover:bg-slate-800 disabled:opacity-70 cursor-pointer"
-            >
-              {loading ? "Processing..." : "Sign out"}
-            </button>
-            <div className="flex items-center justify-center gap-4 text-sm">
-              <Link href="/company/dashboard" className="text-indigo-600 font-medium hover:text-indigo-700">
-                Company Dashboard
-              </Link>
-              <Link href="/admin/dashboard" className="text-indigo-600 font-medium hover:text-indigo-700">
-                Admin Dashboard
-              </Link>
-              <Link href="/jobs" className="text-indigo-600 font-medium hover:text-indigo-700">
-                Jobs
-              </Link>
-            </div>
           </div>
         ) : (
           <>
@@ -435,9 +430,7 @@ export default function LoginPage() {
           </p>
         ) : null}
 
-        <p className="mt-6 text-center text-xs text-slate-500">
-          By continuing, you agree to your platform policy.
-        </p>
+        <p className="mt-6 text-center text-xs text-slate-500">By continuing, you agree to your platform policy.</p>
       </div>
     </div>
   );
