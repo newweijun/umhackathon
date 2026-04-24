@@ -204,17 +204,6 @@ export async function getStudentResumes(studentId: string) {
       ...doc.data(),
     })) as Array<{ id: string; createdAt?: { toMillis?: () => number } }>;
 
-    return resumes.sort((a, b) => {
-      const aMs =
-        (
-          a.createdAt as { toMillis?: () => number } | undefined
-        )?.toMillis?.() ?? 0;
-      const bMs =
-        (
-          b.createdAt as { toMillis?: () => number } | undefined
-        )?.toMillis?.() ?? 0;
-      return bMs - aMs;
-    });
     return fallbackSnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => {

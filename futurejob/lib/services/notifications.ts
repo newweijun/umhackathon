@@ -27,7 +27,7 @@ export interface NotificationRecord {
   createdAt: any;
 }
 
-export async function createNotification2(
+export async function createNotification(
   data: Omit<NotificationRecord, "id" | "createdAt" | "read">,
 ): Promise<string> {
   const notificationsRef = collection(firebaseDb, "notifications");
