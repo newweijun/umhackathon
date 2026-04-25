@@ -90,6 +90,53 @@ function scoreJobsHeuristically(student: GeminiStudentProfileInput, jobs: Gemini
   });
 }
 
+type MatchSource = "gemini" | "heuristic";
+
+type MatchErrorCode =
+  | "none"
+  | "gemini_empty_result"
+  | "gemini_missing_api_key"
+  | "gemini_auth_failed"
+  | "gemini_forbidden"
+  | "gemini_rate_limited"
+  | "gemini_http_error"
+  | "gemini_parse_failed"
+  | "unknown";
+
+function classifyGeminiFailure(error: unknown): MatchErrorCode {
+  if (!(error instanceof Error)) {
+    return "unknown";
+  }
+
+  const message = error.message.toLowerCase();
+
+  if (message.includes("gemini_api_key is not configured")) {
+    return "gemini_missing_api_key";
+  }
+
+  if (message.includes("json parsing failed")) {
+    return "gemini_parse_failed";
+  }
+
+  if (message.includes("(401)")) {
+    return "gemini_auth_failed";
+  }
+
+  if (message.includes("(403)")) {
+    return "gemini_forbidden";
+  }
+
+  if (message.includes("(429)")) {
+    return "gemini_rate_limited";
+  }
+
+  if (message.includes("gemini api request failed")) {
+    return "gemini_http_error";
+  }
+
+  return "unknown";
+}
+
 function getRateLimitSettings() {
   const rawMax = Number(process.env.AI_MATCH_RATE_LIMIT_MAX ?? DEFAULT_MATCH_RATE_LIMIT_MAX);
   const rawWindow = Number(
@@ -193,17 +240,40 @@ export async function POST(request: NextRequest) {
 
     const limitedJobs = jobs.slice(0, 40);
     let result: Awaited<ReturnType<typeof scoreJobsWithGemini>>;
-    let ratingSource = "gemini";
+    let ratingSource: MatchSource = "gemini";
+    let errorCode: MatchErrorCode = "none";
+    let fallbackReason = "";
 
     try {
       result = await scoreJobsWithGemini(student, limitedJobs);
       if (result.length === 0) {
         result = scoreJobsHeuristically(student, limitedJobs);
         ratingSource = "heuristic";
+        errorCode = "gemini_empty_result";
+        fallbackReason = "Gemini returned an empty normalized result set.";
+
+        console.warn("[ai.match-jobs] fallback to heuristic", {
+          uid: decodedToken.uid,
+          source: ratingSource,
+          errorCode,
+          fallbackReason,
+          jobCount: limitedJobs.length,
+        });
       }
-    } catch {
+    } catch (geminiError) {
       result = scoreJobsHeuristically(student, limitedJobs);
       ratingSource = "heuristic";
+      errorCode = classifyGeminiFailure(geminiError);
+      fallbackReason =
+        geminiError instanceof Error ? geminiError.message : "Unknown Gemini failure.";
+
+      console.error("[ai.match-jobs] Gemini scoring failed, fallback to heuristic", {
+        uid: decodedToken.uid,
+        source: ratingSource,
+        errorCode,
+        fallbackReason,
+        jobCount: limitedJobs.length,
+      });
     }
 
     const uniqueJobIds = Array.from(new Set(limitedJobs.map((job) => job.id).filter(Boolean)));
@@ -266,7 +336,12 @@ export async function POST(request: NextRequest) {
 
     await Promise.all(writes);
 
-    return NextResponse.json({ matches: result });
+    return NextResponse.json({
+      matches: result,
+      source: ratingSource,
+      errorCode,
+      fallbackReason: ratingSource === "heuristic" ? fallbackReason : null,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to score jobs.";
     return NextResponse.json({ error: message }, { status: 500 });
