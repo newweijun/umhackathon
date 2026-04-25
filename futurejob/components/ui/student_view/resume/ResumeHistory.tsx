@@ -166,13 +166,13 @@ export default function ResumeHistory() {
       const opt = {
         margin: 0,
         filename: `${header.fullName.toLowerCase().replace(/\s+/g, "_")}_resume.pdf`,
-        image: { type: "jpeg", quality: 1 },
+        image: { type: "jpeg" as const, quality: 1 },
         html2canvas: {
           scale: 4,
           letterRendering: true,
           useCORS: true,
         },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
       };
 
       await html2pdf().set(opt).from(printElement).save();

@@ -8,3 +8,4 @@ export * from "./timestamps";
 export * from "./messages";
 export * from "./interviews";
 export * from "./notifications";
+export * from "./skillQuests";

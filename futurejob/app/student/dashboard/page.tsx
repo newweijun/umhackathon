@@ -9,6 +9,7 @@ import {
   getJobDetailsByIds,
   getStudentRatingResults,
   getCompanyProfilesByIds,
+  getStudentSkillQuests,
   type ApplicationStatus,
 } from "@/lib/services";
 import { firebaseAuth } from "@/lib/firebase/client";
@@ -23,6 +24,13 @@ type DashboardApplication = {
   role: string;
   status: "Applied" | "Under Review" | "Interviewing" | "Offered" | "Rejected";
   jobDetails?: JobMatch;
+};
+
+type StudentSkillQuest = {
+  id: string;
+  summary: string;
+  expectedScoreGain: number;
+  reapplyCondition: string;
 };
 
 // Map backend statuses to the Student UI statuses
@@ -59,11 +67,13 @@ export default function StudentDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<JobMatch | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [skillQuests, setSkillQuests] = useState<StudentSkillQuest[]>([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
       if (!user) {
         setApplications([]);
+        setSkillQuests([]);
         setLoading(false);
         setError("Please sign in to view your applications.");
         return;
@@ -77,15 +87,17 @@ export default function StudentDashboard() {
         const studentApps = await getStudentApplications(user.uid);
         if (studentApps.length === 0) {
           setApplications([]);
+          setSkillQuests([]);
           setLoading(false);
           return;
         }
 
         // 2. Fetch Job details and Ratings in parallel
         const jobIds = Array.from(new Set(studentApps.map((app) => app.jobId)));
-        const [jobMap, ratings] = await Promise.all([
+        const [jobMap, ratings, quests] = await Promise.all([
           getJobDetailsByIds(jobIds),
           getStudentRatingResults(user.uid),
+          getStudentSkillQuests(user.uid, 5),
         ]);
 
         // 3. Fetch Company profiles
@@ -118,8 +130,8 @@ export default function StudentDashboard() {
               companyId: job.companyId,
               role: role,
               location:
-                job.locationDetails ||
-                (job.locationType === "Remote" ? "Remote" : "Location Pending"),
+                String(job.locationDetails || "") ||
+                (String(job.locationType) === "Remote" ? "Remote" : "Location Pending"),
               salary: job.salaryRange ? `RM ${job.salaryRange}` : "Competitive",
               baseSalary: baseSalary,
               datePosted: (job.createdAt as any)?.seconds
@@ -131,7 +143,7 @@ export default function StudentDashboard() {
               matchedSkills: (rating?.matchedSkills as string[]) || [],
               missingSkills: (rating?.missingSkills as string[]) || [],
               description:
-                job.aboutJob || job.expectations || "No description provided.",
+                String(job.aboutJob || "") || String(job.expectations || "") || "No description provided.",
             };
           }
 
@@ -146,6 +158,18 @@ export default function StudentDashboard() {
         });
 
         setApplications(mapped);
+        setSkillQuests(
+          quests.map((quest) => ({
+            id: String(quest.id),
+            summary: String(quest.summary || "Improve your role-fit and project evidence."),
+            expectedScoreGain:
+              typeof quest.expectedScoreGain === "number" ? quest.expectedScoreGain : 0,
+            reapplyCondition: String(
+              quest.reapplyCondition ||
+                "Complete the suggested tasks and update your profile before reapplying.",
+            ),
+          })),
+        );
       } catch (fetchError) {
         console.error("Dashboard error:", fetchError);
         const message =
@@ -153,6 +177,7 @@ export default function StudentDashboard() {
             ? fetchError.message
             : "Failed to load your applications.";
         setError(message);
+        setSkillQuests([]);
       } finally {
         setLoading(false);
       }
@@ -198,6 +223,24 @@ export default function StudentDashboard() {
             </button>
           </div>
         </header>
+
+        {skillQuests.length > 0 && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <h2 className="text-sm font-bold text-amber-900">AI Skill Quests</h2>
+            <p className="text-xs text-amber-800 mt-1 mb-3">
+              Action plans generated after rejected applications to improve your next match.
+            </p>
+            <div className="space-y-2">
+              {skillQuests.map((quest) => (
+                <div key={quest.id} className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-800">{quest.summary}</p>
+                  <p className="text-xs text-slate-600 mt-1">Expected score gain: +{quest.expectedScoreGain}%</p>
+                  <p className="text-xs text-slate-500 mt-1">{quest.reapplyCondition}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 overflow-hidden flex flex-col">
           <div className="overflow-x-auto flex-1">

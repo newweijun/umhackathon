@@ -74,6 +74,7 @@ function mapApplicationToApplicant(
 
   return {
     id: application.id,
+    studentId: application.studentId,
     name: fallbackName,
     skills: "Skill data unavailable",
     match: 75,
@@ -252,6 +253,28 @@ export default function JobCandidatesPage() {
         studentIdForNotification: studentId,
         rejectionReason: reason,
       });
+
+      if (nextStatus === "rejected") {
+        try {
+          const idToken = await user.getIdToken();
+          await fetch("/api/ai/generate-skill-quest", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+              applicationId: applicantId,
+              studentId,
+              jobId,
+              rejectionReason: reason || "Application rejected after review.",
+            }),
+          });
+        } catch (questError) {
+          console.warn("Skill quest generation failed.", questError);
+        }
+      }
+
       await fetchApplicants(user.uid);
     } catch (err) {
       console.error("Error updating status:", err);
@@ -538,15 +561,6 @@ export default function JobCandidatesPage() {
             alert("Interview scheduled successfully!");
           }}
           companyId={firebaseAuth.currentUser?.uid || ""}
-          initialApplication={
-            {
-              id: selectedApplicant.id,
-              studentId: selectedApplicant.studentId,
-              jobId: jobId,
-              companyId: firebaseAuth.currentUser?.uid || "",
-              status: "approved",
-            } as any
-          }
         />
       )}
     </div>

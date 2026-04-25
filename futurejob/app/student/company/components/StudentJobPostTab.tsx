@@ -45,16 +45,16 @@ export default function StudentJobPostTab({ companyId, companyName }: StudentJob
       id: job.id,
       company: companyName,
       companyId: companyId,
-      role: job.title || "Unknown Role",
-      location: job.locationDetails || (job.locationType === "Remote" ? "Remote" : "Location Pending"),
-      salary: job.salaryRange ? `RM ${job.salaryRange}` : "Competitive",
+      role: String(job.title || "Unknown Role"),
+      location: String(job.locationDetails || "") || (String(job.locationType) === "Remote" ? "Remote" : "Location Pending"),
+      salary: job.salaryRange ? `RM ${String(job.salaryRange)}` : "Competitive",
       baseSalary: baseSalary,
       datePosted: (job.createdAt as any)?.seconds ? (job.createdAt as any).seconds * 1000 : Date.now(),
       matchScore: 100,
       aiReasoning: "Explore this opportunity and apply to see your AI match score!",
       matchedSkills: [],
       missingSkills: [],
-      description: job.aboutJob || job.expectations || "No description provided."
+      description: String(job.aboutJob || "") || String(job.expectations || "") || "No description provided."
     };
     setSelectedJob(jobMatch);
   };
@@ -103,26 +103,26 @@ export default function StudentJobPostTab({ companyId, companyName }: StudentJob
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors mb-2">
-                    {job.title}
+                    {String(job.title || "")}
                   </h3>
                   
                   <div className="flex flex-wrap gap-4 text-sm text-slate-600 mb-4">
                     <div className="flex items-center gap-1.5">
                       <MapPin className="w-4 h-4 text-slate-400" />
-                      <span>{job.locationType}</span>
+                      <span>{String(job.locationType || "")}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Briefcase className="w-4 h-4 text-slate-400" />
-                      <span>{job.employmentType}</span>
+                      <span>{String(job.employmentType || "")}</span>
                     </div>
                     <div className="flex items-center gap-1.5 font-medium text-slate-900">
                       <DollarSign className="w-4 h-4 text-emerald-500" />
-                      <span>RM {job.salaryRange}</span>
+                      <span>RM {String(job.salaryRange || "")}</span>
                     </div>
                   </div>
 
                   <p className="text-slate-600 text-sm line-clamp-2 italic">
-                    "{job.aboutJob || "No description provided."}"
+                    "{String(job.aboutJob || "No description provided.")}"
                   </p>
                 </div>
                 

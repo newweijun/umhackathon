@@ -1,0 +1,10 @@
+﻿components/ui/company_view/CompanyJobDetailsModal.tsx(117,11): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+components/ui/company_view/CompanyJobDetailsModal.tsx(152,13): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+components/ui/student_view/resume/ResumeBuilder.tsx(280,28): error TS2345: Argument of type '{ margin: number; filename: string; image: { type: string; quality: number; }; html2canvas: { scale: number; useCORS: boolean; letterRendering: boolean; }; jsPDF: { unit: string; format: string; orientation: string; }; }' is not assignable to parameter of type 'Html2PdfOptions'.
+  The types of 'image.type' are incompatible between these types.
+    Type 'string' is not assignable to type '"jpeg" | "png" | "webp" | undefined'.
+components/ui/student_view/resume/ResumeHistory.tsx(178,28): error TS2345: Argument of type '{ margin: number; filename: string; image: { type: string; quality: number; }; html2canvas: { scale: number; letterRendering: boolean; useCORS: boolean; }; jsPDF: { unit: string; format: string; orientation: string; }; }' is not assignable to parameter of type 'Html2PdfOptions'.
+  The types of 'image.type' are incompatible between these types.
+    Type 'string' is not assignable to type '"jpeg" | "png" | "webp" | undefined'.
+lib/services/workflows.ts(217,15): error TS2339: Property 'createdAt' does not exist on type '{ id: string; }'.
+lib/services/workflows.ts(221,15): error TS2339: Property 'createdAt' does not exist on type '{ id: string; }'.

@@ -1,0 +1,6 @@
+﻿components/ui/student_view/resume/ResumeBuilder.tsx(280,28): error TS2345: Argument of type '{ margin: number; filename: string; image: { type: "jpeg"; quality: number; }; html2canvas: { scale: number; useCORS: boolean; letterRendering: boolean; }; jsPDF: { unit: string; format: string; orientation: string; }; }' is not assignable to parameter of type 'Html2PdfOptions'.
+  The types of 'jsPDF.orientation' are incompatible between these types.
+    Type 'string' is not assignable to type '"portrait" | "landscape" | undefined'.
+components/ui/student_view/resume/ResumeHistory.tsx(178,28): error TS2345: Argument of type '{ margin: number; filename: string; image: { type: "jpeg"; quality: number; }; html2canvas: { scale: number; letterRendering: boolean; useCORS: boolean; }; jsPDF: { unit: string; format: string; orientation: string; }; }' is not assignable to parameter of type 'Html2PdfOptions'.
+  The types of 'jsPDF.orientation' are incompatible between these types.
+    Type 'string' is not assignable to type '"portrait" | "landscape" | undefined'.

@@ -125,7 +125,7 @@ export default function CompanyJobDetailsModal({ job, onClose, onSuccess }: Comp
           </section>
 
           {/* Key Responsibilities */}
-          {job.keyResponsibilities && (
+          {!!job.keyResponsibilities && (
             <section>
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <div className="w-1 h-4 bg-indigo-600 rounded-full" />
@@ -149,7 +149,7 @@ export default function CompanyJobDetailsModal({ job, onClose, onSuccess }: Comp
               </div>
             </div>
             
-            {job.preferredQualification && (
+            {!!job.preferredQualification && (
               <div>
                 <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <div className="w-1 h-4 bg-indigo-600 rounded-full" />

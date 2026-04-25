@@ -4,13 +4,33 @@ import React, { useState, useMemo, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase/client";
 import { 
-  getJobsByStatus, 
-  getCompanyProfilesByIds 
+  getJobsByStatus,
+  getCompanyProfilesByIds,
+  getCandidateProfile,
 } from "@/lib/services";
 import { JobMatch, SortOption } from "@/lib/types/jobs";
 import JobMatchHeader from "@/components/ui/student_view/matches/JobMatchHeader";
 import JobMatchCard from "@/components/ui/student_view/matches/JobMatchCard";
 import JobMatchDetails from "@/components/ui/student_view/matches/JobMatchDetail";
+
+type MatchApiResult = {
+  jobId: string;
+  matchScore: number;
+  aiReasoning: string;
+  matchedSkills: string[];
+  missingSkills: string[];
+};
+
+function toDatePosted(createdAt: unknown) {
+  if (createdAt && typeof createdAt === "object" && "seconds" in createdAt) {
+    const seconds = (createdAt as { seconds?: unknown }).seconds;
+    if (typeof seconds === "number") {
+      return seconds * 1000;
+    }
+  }
+
+  return Date.now();
+}
 
 export default function StudentJobMatches() {
   const [matches, setMatches] = useState<JobMatch[]>([]);
@@ -41,9 +61,62 @@ export default function StudentJobMatches() {
         const companyIds = Array.from(new Set(openJobs.map(j => j.companyId)));
         const companyMap = await getCompanyProfilesByIds(companyIds);
 
-        // 3. Map to JobMatch interface
+        // 3. Fetch current student profile for AI scoring context
+        const profile = await getCandidateProfile(user.uid);
+
+        // 4. Ask server route to score each open job using Gemini
+        let matchLookup = new Map<string, MatchApiResult>();
+        try {
+          const idToken = await user.getIdToken();
+          const response = await fetch("/api/ai/match-jobs", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+              student: {
+                uid: user.uid,
+                fullName: (profile?.fullName as string) || (profile?.name as string) || "",
+                experience: (profile?.experience as string) || "",
+                preferredLocation: "",
+                skills: Array.isArray(profile?.skills)
+                  ? (profile.skills as string[])
+                  : typeof profile?.skills === "string"
+                    ? (profile.skills as string)
+                        .split(",")
+                        .map((skill) => skill.trim())
+                        .filter(Boolean)
+                    : [],
+              },
+              jobs: openJobs.map((job) => ({
+                id: job.id,
+                companyId: job.companyId,
+                title: String(job.title || ""),
+                companyName: String(companyMap.get(job.companyId)?.name || ""),
+                location: String(job.locationDetails || ""),
+                salary: String(job.salaryRange || ""),
+                description: String(job.aboutJob || ""),
+                requirements: String(job.expectations || ""),
+              })),
+            }),
+          });
+
+          if (response.ok) {
+            const payload = (await response.json()) as { matches?: MatchApiResult[] };
+            const entries = (payload.matches ?? [])
+              .filter((item) => typeof item.jobId === "string")
+              .map((item) => [item.jobId, item] as const);
+            matchLookup = new Map(entries);
+          }
+        } catch (aiError) {
+          console.warn("AI scoring failed, fallback to default score.", aiError);
+        }
+
+        // 5. Map to JobMatch interface
         const mappedMatches: JobMatch[] = openJobs.map(job => {
           const company = companyMap.get(job.companyId);
+          const aiMatch = matchLookup.get(job.id);
           
           // Parse salary for sorting
           const salaryStr = String(job.salaryRange || "");
@@ -51,18 +124,20 @@ export default function StudentJobMatches() {
 
           return {
             id: job.id,
-            company: company?.name || "Unknown Company",
+            company: String(company?.name || "Unknown Company"),
             companyId: job.companyId,
-            role: job.title || "Unknown Role",
-            location: job.locationDetails || (job.locationType === "Remote" ? "Remote" : "Location Pending"),
-            salary: job.salaryRange ? `RM ${job.salaryRange}` : "Competitive",
+            role: String(job.title || "Unknown Role"),
+            location: String(job.locationDetails || "") || (String(job.locationType) === "Remote" ? "Remote" : "Location Pending"),
+            salary: job.salaryRange ? `RM ${String(job.salaryRange)}` : "Competitive",
             baseSalary: baseSalary,
-            datePosted: (job.createdAt as any)?.seconds ? (job.createdAt as any).seconds * 1000 : Date.now(),
-            matchScore: 100, // Placeholder score since AI matching is skipped
-            aiReasoning: "This job is currently open and accepting applications. Complete your profile to get a personalized AI match score!",
-            matchedSkills: [],
-            missingSkills: [],
-            description: job.aboutJob || job.expectations || "No description provided."
+            datePosted: toDatePosted(job.createdAt),
+            matchScore: typeof aiMatch?.matchScore === "number" ? aiMatch.matchScore : 50,
+            aiReasoning:
+              aiMatch?.aiReasoning ||
+              "AI matching temporarily unavailable. Showing default ranking.",
+            matchedSkills: aiMatch?.matchedSkills ?? [],
+            missingSkills: aiMatch?.missingSkills ?? [],
+            description: String(job.aboutJob || "") || String(job.expectations || "") || "No description provided."
           };
         });
 

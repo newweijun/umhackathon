@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { firebaseAuth } from "@/lib/firebase/client";
+import { updateCandidateProfile } from "@/lib/services/candidateProfiles";
 import { saveResumeRecord } from "@/lib/services/workflows";
 
 // --- INTERFACES ---
@@ -28,6 +29,11 @@ export interface SectionVisibility {
 
 export default function ResumeBuilder() {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [rawProfileInput, setRawProfileInput] = useState("");
+  const [isParsingProfile, setIsParsingProfile] = useState(false);
+  const [parseError, setParseError] = useState("");
+  const [clarificationQuestions, setClarificationQuestions] = useState<string[]>([]);
+  const [clarificationAnswers, setClarificationAnswers] = useState<Record<string, string>>({});
 
   // 1. Fixed Header Data
   const [headerData, setHeaderData] = useState({
@@ -134,6 +140,116 @@ export default function ResumeBuilder() {
     setExperiences([]);
   };
 
+  const handleAiParseProfile = async () => {
+    const user = firebaseAuth.currentUser;
+    if (!user) {
+      setParseError("Please sign in first.");
+      return;
+    }
+
+    if (!rawProfileInput.trim()) {
+      setParseError("Paste your raw resume/profile text first.");
+      return;
+    }
+
+    setIsParsingProfile(true);
+    setParseError("");
+
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch("/api/ai/parse-profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          rawText: rawProfileInput,
+          priorAnswers: clarificationAnswers,
+        }),
+      });
+
+      const payload = (await response.json()) as {
+        structuredProfile?: {
+          fullName?: string;
+          email?: string;
+          phone?: string;
+          education?: string;
+          experienceSummary?: string;
+          skills?: string[];
+          projects?: Array<{ name?: string; summary?: string; techStack?: string[] }>;
+        };
+        needsClarification?: boolean;
+        clarificationQuestions?: string[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "AI parse failed.");
+      }
+
+      const profile = payload.structuredProfile;
+      if (profile) {
+        setHeaderData((prev) => ({
+          ...prev,
+          fullName: profile.fullName || prev.fullName,
+          email: profile.email || prev.email,
+          phone: profile.phone || prev.phone,
+        }));
+
+        setBasicSections((prev) => ({
+          ...prev,
+          education: profile.education || prev.education,
+          skills:
+            Array.isArray(profile.skills) && profile.skills.length > 0
+              ? profile.skills.join(", ")
+              : prev.skills,
+        }));
+
+        if (profile.experienceSummary) {
+          setExperiences((prev) => {
+            if (prev.length === 0) {
+              return [
+                {
+                  id: Date.now().toString(),
+                  role: "",
+                  company: "",
+                  time: "",
+                  description: profile.experienceSummary || "",
+                },
+              ];
+            }
+
+            const first = prev[0];
+            return [
+              {
+                ...first,
+                description: first.description || profile.experienceSummary || "",
+              },
+              ...prev.slice(1),
+            ];
+          });
+        }
+
+        await updateCandidateProfile(user.uid, {
+          fullName: profile.fullName,
+          email: profile.email,
+          phone: profile.phone,
+          education: profile.education,
+          experience: profile.experienceSummary,
+          skills: profile.skills,
+          projects: profile.projects,
+        });
+      }
+
+      setClarificationQuestions(payload.clarificationQuestions ?? []);
+    } catch (error) {
+      setParseError(error instanceof Error ? error.message : "AI parse failed.");
+    } finally {
+      setIsParsingProfile(false);
+    }
+  };
+
   const handleGeneratePDF = async () => {
     setIsGenerating(true);
 
@@ -152,13 +268,13 @@ export default function ResumeBuilder() {
       const opt = {
         margin: 0,
         filename: safeFileName,
-        image: { type: "jpeg", quality: 1 },
+        image: { type: "jpeg" as const, quality: 1 },
         html2canvas: {
           scale: 4,
           useCORS: true,
           letterRendering: true,
         },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
       };
 
       await html2pdf().set(opt).from(printElement).save();
@@ -333,6 +449,58 @@ export default function ResumeBuilder() {
         </div>
 
         <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+          <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+            <h3 className="font-bold text-indigo-900 mb-2 text-sm">
+              AI Resume Parse & Clarification
+            </h3>
+            <p className="text-xs text-indigo-700 mb-3">
+              Paste unstructured resume text. AI will extract fields and ask follow-up questions when data is missing.
+            </p>
+            <textarea
+              value={rawProfileInput}
+              onChange={(e) => setRawProfileInput(e.target.value)}
+              placeholder="Paste your resume text, profile summary, project details, and skills here..."
+              className="w-full p-3 border border-indigo-200 rounded-md text-sm outline-none focus:border-indigo-400 min-h-28 resize-y bg-white"
+            />
+
+            {clarificationQuestions.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {clarificationQuestions.map((question, index) => (
+                  <div key={question}>
+                    <label className="block text-xs font-semibold text-indigo-900 mb-1">
+                      Follow-up {index + 1}
+                    </label>
+                    <p className="text-xs text-indigo-700 mb-1">{question}</p>
+                    <input
+                      type="text"
+                      value={clarificationAnswers[question] || ""}
+                      onChange={(e) =>
+                        setClarificationAnswers((prev) => ({
+                          ...prev,
+                          [question]: e.target.value,
+                        }))
+                      }
+                      className="w-full p-2 border border-indigo-200 rounded text-sm outline-none focus:border-indigo-400 bg-white"
+                      placeholder="Your answer..."
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {parseError && (
+              <p className="mt-2 text-xs text-rose-600 font-medium">{parseError}</p>
+            )}
+
+            <button
+              onClick={handleAiParseProfile}
+              disabled={isParsingProfile}
+              className="mt-3 px-3 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isParsingProfile ? "Parsing..." : "Parse with AI"}
+            </button>
+          </div>
+
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <h3 className="font-bold text-slate-800 mb-3 text-sm flex items-center gap-2">
               Personal Information (Fixed Top)

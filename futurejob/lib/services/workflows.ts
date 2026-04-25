@@ -211,7 +211,7 @@ export async function getStudentResumes(studentId: string) {
 
     return fallbackSnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .sort((a, b) => {
+      .sort((a: any, b: any) => {
         const aMs =
           (
             a.createdAt as { toMillis?: () => number } | undefined
