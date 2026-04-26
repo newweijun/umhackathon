@@ -14,7 +14,7 @@ export default function ResumeLab() {
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] relative font-sans text-slate-800">
       {/* Header */}
-      <header className="mb-6 flex-shrink-0">
+      <header className="mb-6 shrink-0">
         <h1 className="text-2xl font-bold text-slate-900">Resume Lab</h1>
         <p className="text-slate-500 mt-1">
           Build, manage, and analyze your resumes for ATS systems.
